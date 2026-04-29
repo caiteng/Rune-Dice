@@ -1,0 +1,1 @@
+import Phaser from 'phaser';export class BattleLogView{txt:Phaser.GameObjects.Text;constructor(scene:Phaser.Scene,x:number,y:number){this.txt=scene.add.text(x,y,'',{fontSize:'16px',color:'#cbd5e1',wordWrap:{width:330}})}set(lines:string[]){this.txt.setText(lines.slice(-5).join('\n'))}}

@@ -1,0 +1,2 @@
+import Phaser from 'phaser';import { BootScene } from './scenes/BootScene';import { PreloadScene } from './scenes/PreloadScene';import { BattleScene } from './scenes/BattleScene';
+export class RuneDiceGame{game:Phaser.Game;constructor(parent:string){this.game=new Phaser.Game({type:Phaser.AUTO,parent,width:390,height:844,backgroundColor:'#0b1020',scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},scene:[BootScene,PreloadScene,BattleScene]});}}
