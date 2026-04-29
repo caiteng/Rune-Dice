@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "dependencies": {
     "phaser": "^3.90.0"
   },
