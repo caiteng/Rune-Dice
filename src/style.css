@@ -1,0 +1,2 @@
+html,body,#app{margin:0;width:100%;height:100%;background:#11151f;display:flex;justify-content:center;align-items:center;overflow:hidden;font-family:Arial,sans-serif}
+canvas{max-height:100vh;max-width:100vw}

@@ -1,0 +1,1 @@
+import Phaser from 'phaser';export class StatusPanel{txt:Phaser.GameObjects.Text;constructor(scene:Phaser.Scene,x:number,y:number){this.txt=scene.add.text(x,y,'',{fontSize:'18px',color:'#fff'})}set(t:string){this.txt.setText(t)}}
