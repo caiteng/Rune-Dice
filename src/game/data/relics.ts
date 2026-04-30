@@ -1,10 +1,8 @@
 export const RELICS=[
-{id:'FlameCrown',name:'FlameCrown',desc:'fire>=3 +10 dmg'},
-{id:'ThunderWire',name:'ThunderWire',desc:'thunder extra hit'},
-{id:'StoneMask',name:'StoneMask',desc:'every +10 armor reflect 4'},
-{id:'GoldCup',name:'GoldCup',desc:'gold +1 each'},
-{id:'BloodContract',name:'BloodContract',desc:'dark dmg +50%, self +1'},
-{id:'CalmEye',name:'CalmEye',desc:'first settle extra reroll'},
-{id:'RainbowScale',name:'RainbowScale',desc:'rainbow x2'},
-{id:'LuckyCharm',name:'LuckyCharm',desc:'rerollMax +1'}
+{id:'FlameCrown',name:'火焰王冠',desc:'火符文不少于 3 个时，额外造成 10 点伤害'},
+{id:'StoneMask',name:'石像面具',desc:'本回合获得护甲不少于 10 点时，反击 4 点伤害'},
+{id:'GoldCup',name:'金杯',desc:'每个金符文额外获得 1 金币'},
+{id:'BloodContract',name:'血契',desc:'暗符文伤害提高，但自伤增加'},
+{id:'RainbowScale',name:'彩虹天平',desc:'触发五色组合时效果翻倍'},
+{id:'LuckyCharm',name:'幸运护符',desc:'最大重掷次数 +1'}
 ];

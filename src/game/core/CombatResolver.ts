@@ -1,20 +1,92 @@
 import type { EnemyState, PlayerState, RuneType } from './types';
-export function resolveRunes(runes:RuneType[],player:PlayerState,enemy:EnemyState,log:(s:string)=>void){
- const c=(r:RuneType)=>runes.filter(x=>x===r).length;
- let damage=0,heal=0,armor=0,gold=0,self=0;
- const fire=c('fire'); damage+=[0,3,8,18,40,100][fire]||0; damage+=fire*(player.runeBonus.fire||0);
- const water=c('water'); heal+=water*2+(water>=2?3:0);
- const stone=c('stone'); armor+=stone*3+(stone>=3?8:0);
- const thunder=c('thunder'); damage+=thunder*4+(thunder>=3?6:0);
- const g=c('gold'); gold+=g*2+(g>=3?8:0);
- const dark=c('dark'); damage+=dark*8+(dark>=3?20:0); self+=dark;
- if(new Set(runes.filter(r=>r!=='curse')).size>=5){damage+=20;heal+=5;armor+=5;gold+=5;if(player.relics.includes('RainbowScale')){damage+=20;heal+=5;armor+=5;gold+=5;}}
- if(player.relics.includes('FlameCrown')&&fire>=3)damage+=10;
- if(player.relics.includes('GoldCup'))gold+=g;
- if(player.relics.includes('BloodContract')){damage+=Math.floor(dark*8*0.5);self+=dark;}
- if(enemy.id==='firespirit') damage=Math.floor(damage*0.7);
- player.hp=Math.min(player.maxHp,player.hp+heal)-self; player.armor+=armor; player.gold+=gold;
- let d=Math.max(0,damage-enemy.armor); enemy.armor=Math.max(0,enemy.armor-damage); enemy.hp-=d;
- if(player.relics.includes('StoneMask')&&armor>=10){enemy.hp-=4;log('StoneMask reflects 4.');}
- log(`Resolve dmg:${d} heal:${heal} armor:+${armor} gold:+${gold} self:${self}`);
+import { RUNE_NAME } from '../data/runes';
+
+export type DamagePacket = { source: 'fire' | 'thunder' | 'dark' | 'rainbow' | 'relic'; amount: number };
+
+export function resolveRunes(runes: RuneType[], player: PlayerState, enemy: EnemyState, log: (s: string) => void) {
+  const count = (r: RuneType) => runes.filter((x) => x === r).length;
+  const packets: DamagePacket[] = [];
+  let heal = 0;
+  let armor = 0;
+  let gold = 0;
+  let self = 0;
+
+  log(`你掷出了：${runes.map((r) => RUNE_NAME[r]).join('、')}`);
+
+  const fire = count('fire');
+  const fireDamage = ([0, 3, 8, 18, 40, 100][fire] || 0) + fire * (player.runeBonus.fire || 0);
+  if (fireDamage > 0) packets.push({ source: 'fire', amount: fireDamage });
+
+  const water = count('water');
+  heal += water * 2 + (water >= 2 ? 3 : 0);
+
+  const stone = count('stone');
+  armor += stone * 3 + (stone >= 3 ? 8 : 0);
+
+  const thunder = count('thunder');
+  const thunderDamage = thunder * 4 + (thunder >= 3 ? 6 : 0);
+  if (thunderDamage > 0) packets.push({ source: 'thunder', amount: thunderDamage });
+
+  const goldRunes = count('gold');
+  gold += goldRunes * 2 + (goldRunes >= 3 ? 8 : 0);
+
+  const dark = count('dark');
+  const darkDamage = dark * 8 + (dark >= 3 ? 20 : 0);
+  if (darkDamage > 0) packets.push({ source: 'dark', amount: darkDamage });
+  self += dark;
+
+  const isRainbow = new Set(runes.filter((r) => r !== 'curse')).size >= 5;
+  if (isRainbow) {
+    packets.push({ source: 'rainbow', amount: 20 });
+    heal += 5;
+    armor += 5;
+    gold += 5;
+    if (player.relics.includes('RainbowScale')) {
+      packets.push({ source: 'rainbow', amount: 20 });
+      heal += 5;
+      armor += 5;
+      gold += 5;
+      log('彩虹天平让五色组合效果翻倍。');
+    }
+  }
+
+  if (player.relics.includes('FlameCrown') && fire >= 3) {
+    packets.push({ source: 'relic', amount: 10 });
+    log('火焰王冠额外造成 10 点伤害。');
+  }
+  if (player.relics.includes('GoldCup')) gold += goldRunes;
+  if (player.relics.includes('BloodContract') && dark > 0) {
+    packets.push({ source: 'dark', amount: Math.floor(dark * 8 * 0.5) });
+    self += dark;
+    log('血契强化暗符文，但你承受了额外自伤。');
+  }
+
+  player.hp = Math.max(0, Math.min(player.maxHp, player.hp + heal) - self);
+  player.armor += armor;
+  player.gold += gold;
+
+  const rawDamage = packets.reduce((sum, packet) => sum + reduceDamageForEnemy(packet, enemy), 0);
+  const dealt = Math.max(0, rawDamage - enemy.armor);
+  enemy.armor = Math.max(0, enemy.armor - rawDamage);
+  enemy.hp -= dealt;
+
+  if (player.relics.includes('StoneMask') && armor >= 10) {
+    enemy.hp -= 4;
+    log('石像面具反击，造成 4 点伤害。');
+  }
+
+  describeCombo(fire, thunder, dark, dealt, log);
+  log(`结算：伤害 ${dealt}，治疗 ${heal}，护甲 +${armor}，金币 +${gold}，自伤 ${self}。`);
+}
+
+function reduceDamageForEnemy(packet: DamagePacket, enemy: EnemyState) {
+  if (enemy.id === 'firespirit' && packet.source === 'fire') return Math.floor(packet.amount * 0.7);
+  return packet.amount;
+}
+
+function describeCombo(fire: number, thunder: number, dark: number, dealt: number, log: (s: string) => void) {
+  if (fire >= 4) log(`四火组合，造成 ${dealt} 点伤害。`);
+  else if (fire >= 3) log(`三火组合，造成 ${dealt} 点伤害。`);
+  else if (thunder >= 3) log(`雷鸣组合，造成 ${dealt} 点伤害。`);
+  else if (dark >= 3) log(`暗影组合，造成 ${dealt} 点伤害。`);
 }
