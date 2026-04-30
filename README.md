@@ -7,9 +7,49 @@
 npm install
 npm run dev
 npm run build
+cd server && npm install && cd ..
+npm start
 ```
 
 > 当前环境对 npm registry 返回 403，可能无法实际安装依赖；代码结构和脚本已就绪。
+
+## Docker 部署
+容器内服务监听 `9999`，同时托管前端静态文件和 `/api` 接口：
+
+```bash
+docker compose up -d
+```
+
+后续存档走服务端 SQLite，数据文件默认放在容器内 `/data/rune-dice.sqlite`。`docker-compose.yml` 已把服务器目录 `/opt/rune-dice/data` 挂到容器 `/data`，重建容器不会丢存档。
+
+服务端依赖单独放在 `server/package.json`，根目录 `package.json` 只保留客户端游戏依赖。这样后续打包安卓应用或微信小游戏时，可以只复用 `src/game` 和 Vite 客户端构建，不会把 Express/SQLite native 依赖带进移动端包。
+
+## GitHub Actions 自动部署
+`.github/workflows/deploy.yml` 会在 `main` 分支 push 后：
+
+1. SSH 到服务器。
+2. 进入服务器项目目录 `/opt/rune-dice/app`。
+3. 执行 `scripts/deploy.sh`。
+4. 在服务器上拉取最新 `main` 并执行 `docker compose up -d --build`。
+
+GitHub 仓库需要配置这些 Actions Secrets：
+
+- `DEPLOY_HOST`: 服务器 IP 或域名。
+- `DEPLOY_USER`: SSH 用户名，需能执行 `docker`。
+- `DEPLOY_SSH_KEY`: 对应服务器公钥的私钥内容。
+- `DEPLOY_PORT`: SSH 端口；不填时默认 `22`。
+
+服务器需要提前准备：
+
+- 安装 Docker 和 Docker Compose v2，或执行 `scripts/server-init.sh` 自动安装。
+- 开放公网端口 `9999`。
+- 创建部署用户并加入 docker 组，或确保该用户能直接运行 `docker compose`。
+- 把 `DEPLOY_SSH_KEY` 对应的公钥加入该用户的 `~/.ssh/authorized_keys`。
+- 首次初始化示例：
+
+```bash
+REPO_URL='https://github.com/caiteng/Rune-Dice.git' APP_DIR='/opt/rune-dice/app' bash scripts/server-init.sh
+```
 
 ## 目录结构
 - `src/game/core`: 核心规则、状态、随机、战斗、敌人AI、奖励。

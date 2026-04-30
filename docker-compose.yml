@@ -1,0 +1,10 @@
+services:
+  rune-dice:
+    build: .
+    image: rune-dice:latest
+    container_name: rune-dice
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    volumes:
+      - /opt/rune-dice/data:/data
