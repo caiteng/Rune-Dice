@@ -3,3 +3,17 @@ node_modules/
 server/node_modules/
 dist/
 data/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Local cache/build metadata
+.cache/
+tsconfig.tsbuildinfo
