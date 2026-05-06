@@ -1,4 +1,5 @@
 import type { GameState } from '../core/types';
+import { emptySlots } from '../core/GameState';
 import { LocalSaveProvider } from './LocalSaveProvider';
 import { RemoteSaveProvider } from './RemoteSaveProvider';
 import type { SaveData } from './SaveTypes';
@@ -92,6 +93,8 @@ export function toSaveData(state: GameState): SaveData {
     player: state.player,
     enemy: state.enemy,
     dice: state.dice,
+    slots: state.slots,
+    selectedDieIndex: state.selectedDieIndex,
     log: state.log.slice(-20),
     pendingRewards: state.pendingRewards,
     pendingDieUpgrade: state.pendingDieUpgrade,
@@ -99,13 +102,24 @@ export function toSaveData(state: GameState): SaveData {
 }
 
 export function applySaveData(data: SaveData): GameState {
+  if (!data.slots) console.warn('旧存档缺少槽位字段，已按新玩法补齐默认槽位。');
+  const player = {
+    ...data.player,
+    runeBonus: data.player.runeBonus ?? {},
+    slotBonus: data.player.slotBonus ?? { attack: 0, defense: 0, tacticGold: 0 },
+    nextTurnArmor: data.player.nextTurnArmor ?? 0,
+    nextTurnExtraReroll: data.player.nextTurnExtraReroll ?? 0,
+    darkEnergy: data.player.darkEnergy ?? 0,
+  };
   return {
     seed: data.seed,
     phase: data.phase,
     battleIndex: data.battleIndex,
-    player: data.player,
+    player,
     enemy: data.enemy,
     dice: data.dice,
+    slots: data.slots ?? emptySlots(),
+    selectedDieIndex: data.selectedDieIndex ?? null,
     log: data.log,
     pendingRewards: data.pendingRewards,
     pendingDieUpgrade: data.pendingDieUpgrade,

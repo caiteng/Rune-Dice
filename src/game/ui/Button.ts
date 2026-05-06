@@ -1,12 +1,23 @@
 import Phaser from 'phaser';
 
+export type ButtonVariant = 'primary' | 'secondary' | 'reward' | 'danger';
+
+const BUTTON_TEXTURE: Record<ButtonVariant, string> = {
+  primary: 'button_primary_blue',
+  secondary: 'button_secondary_green',
+  reward: 'button_reward_purple',
+  danger: 'button_danger_red',
+};
+
 export class Button {
-  bg: Phaser.GameObjects.Rectangle;
+  bg: Phaser.GameObjects.Image;
   txt: Phaser.GameObjects.Text;
   enabled = true;
+  private readonly variant: ButtonVariant;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string, cb: () => void) {
-    this.bg = scene.add.rectangle(x, y, w, Math.max(44, h), 0x2f6fed).setStrokeStyle(2, 0xffffff).setInteractive();
+  constructor(scene: Phaser.Scene, x: number, y: number, w: number, h: number, label: string, cb: () => void, variant: ButtonVariant = 'primary') {
+    this.variant = variant;
+    this.bg = scene.add.image(x, y, BUTTON_TEXTURE[variant]).setDisplaySize(w, Math.max(44, h)).setInteractive();
     this.txt = scene.add.text(x, y, label, { fontSize: '20px', color: '#fff', align: 'center', wordWrap: { width: w - 16 } }).setOrigin(0.5);
     this.bg.on('pointerdown', () => this.enabled && cb());
   }
@@ -17,8 +28,10 @@ export class Button {
 
   setEnabled(value: boolean) {
     this.enabled = value;
-    this.bg.setFillStyle(value ? 0x2f6fed : 0x555555);
-    this.bg.setAlpha(value ? 1 : 0.7);
+    this.bg.setTexture(BUTTON_TEXTURE[this.variant]);
+    this.bg.setTint(value ? 0xffffff : 0x6b7280);
+    this.bg.setAlpha(value ? 1 : 0.65);
+    this.txt.setAlpha(value ? 1 : 0.65);
   }
 
   destroy() {
