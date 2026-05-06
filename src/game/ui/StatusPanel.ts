@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { PlayerState } from '../core/types';
+import { addFitImage } from './ImageFit';
 
 export class StatusPanel {
   txt: Phaser.GameObjects.Text;
@@ -12,10 +13,10 @@ export class StatusPanel {
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     scene.add.image(x + 175, y + 92, 'panel_vertical_common').setDisplaySize(350, 196);
-    scene.add.image(x + 42, y + 24, 'icon_health').setDisplaySize(28, 26);
-    scene.add.image(x + 42, y + 66, 'icon_armor').setDisplaySize(28, 28);
-    scene.add.image(x + 42, y + 108, 'icon_reroll').setDisplaySize(28, 28);
-    scene.add.image(x + 228, y + 24, 'icon_gold').setDisplaySize(28, 28);
+    addFitImage(scene, x + 42, y + 24, 'icon_health', 28, 26);
+    addFitImage(scene, x + 42, y + 66, 'icon_armor', 28, 28);
+    addFitImage(scene, x + 42, y + 108, 'icon_reroll', 28, 28);
+    addFitImage(scene, x + 228, y + 24, 'icon_gold', 28, 28);
     scene.add.image(x + 118, y + 24, 'bar_health_empty').setDisplaySize(182, 34);
     scene.add.image(x + 118, y + 66, 'bar_armor_empty').setDisplaySize(182, 34);
     scene.add.image(x + 118, y + 108, 'bar_energy_empty').setDisplaySize(182, 34);

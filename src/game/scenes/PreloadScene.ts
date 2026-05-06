@@ -11,6 +11,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create() {
+    ALL_IMAGE_ASSETS.forEach(([key]) => this.textures.get(key)?.setFilter(Phaser.Textures.FilterMode.LINEAR));
     this.scene.start('Home');
   }
 }

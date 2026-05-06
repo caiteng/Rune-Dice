@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { DiceView } from '../ui/DiceView';
 import { StatusPanel } from '../ui/StatusPanel';
 import { BattleLogView } from '../ui/BattleLogView';
+import { fitImage } from '../ui/ImageFit';
 import { createEnemy, createState, emptySlots } from '../core/GameState';
 import { Random } from '../core/Random';
 import { rollAll, resetDiceTurn, toggleLock } from '../core/DiceRoller';
@@ -77,8 +78,8 @@ export class BattleScene extends Phaser.Scene {
   create() {
     this.add.rectangle(195, 422, 390, 844, 0x0b1020);
     this.add.image(195, 98, 'panel_wide_boss').setDisplaySize(368, 166);
-    this.enemySprite = this.add.image(274, 106, 'enemy_slime_sprite').setDisplaySize(112, 112);
-    this.enemyPortrait = this.add.image(54, 48, 'enemy_slime_portrait').setDisplaySize(48, 52);
+    this.enemySprite = fitImage(this.add.image(274, 106, 'enemy_slime_sprite'), 112, 112);
+    this.enemyPortrait = fitImage(this.add.image(54, 48, 'enemy_slime_portrait'), 48, 52);
     this.add.image(148, 54, 'bar_health_empty').setDisplaySize(176, 24);
     this.add.image(148, 84, 'bar_armor_empty').setDisplaySize(176, 24);
     this.enemyHpFill = this.add.image(68, 54, 'bar_health_full').setOrigin(0, 0.5).setDisplaySize(160, 18);
@@ -306,8 +307,8 @@ export class BattleScene extends Phaser.Scene {
     this.rewardDecor.push(this.add.image(195, 190, 'divider_gold').setDisplaySize(240, 28));
     this.state.pendingRewards.forEach((reward, index) => {
       const y = 246 + index * 84;
-      this.rewardDecor.push(this.add.image(56, y, this.rewardCardFrame(reward)).setDisplaySize(58, 76));
-      this.rewardDecor.push(this.add.image(56, y, this.rewardIcon(reward)).setDisplaySize(30, 30));
+      this.rewardDecor.push(fitImage(this.add.image(56, y, this.rewardCardFrame(reward)), 58, 76));
+      this.rewardDecor.push(fitImage(this.add.image(56, y, this.rewardIcon(reward)), 30, 30));
       const button = new Button(this, 210, y, 280, 68, `${reward.name}\n${reward.desc}`, () => {
         if (reward.kind === 'dieface') {
           this.state.phase = 'upgrade';
@@ -394,14 +395,14 @@ export class BattleScene extends Phaser.Scene {
     const enemy = this.state.enemy;
     if (this.state.phase === 'victory') {
       this.enemyText.setText('胜利！');
-      this.enemySprite.setTexture(this.safeTexture('enemy_fate_dealer_portrait', 'enemy_slime_portrait')).setDisplaySize(110, 110);
+      fitImage(this.enemySprite.setTexture(this.safeTexture('enemy_fate_dealer_portrait', 'enemy_slime_portrait')), 110, 110);
     } else if (this.state.phase === 'defeat') {
       this.enemyText.setText('失败！');
     } else {
       this.enemyText.setText(`${enemy?.name}\n生命 ${enemy?.hp}/${enemy?.maxHp}\n护甲 ${enemy?.armor}\n意图：${enemy?.intent}`);
       if (enemy) {
-        this.enemySprite.setTexture(this.safeTexture(ENEMY_SPRITE_ASSET[enemy.id] ?? '', 'enemy_slime_sprite')).setDisplaySize(enemy.id === 'fatedealer' ? 124 : 112, enemy.id === 'fatedealer' ? 140 : 112);
-        this.enemyPortrait.setTexture(this.safeTexture(ENEMY_PORTRAIT_ASSET[enemy.id] ?? '', 'enemy_slime_portrait'));
+        fitImage(this.enemySprite.setTexture(this.safeTexture(ENEMY_SPRITE_ASSET[enemy.id] ?? '', 'enemy_slime_sprite')), enemy.id === 'fatedealer' ? 124 : 112, enemy.id === 'fatedealer' ? 140 : 112);
+        fitImage(this.enemyPortrait.setTexture(this.safeTexture(ENEMY_PORTRAIT_ASSET[enemy.id] ?? '', 'enemy_slime_portrait')), 48, 52);
         this.setBar(this.enemyHpFill, 160, enemy.hp / enemy.maxHp);
         this.setBar(this.enemyArmorFill, 160, enemy.armor / Math.max(12, enemy.maxHp));
       }
@@ -483,6 +484,7 @@ export class BattleScene extends Phaser.Scene {
 
   private playEffect(key: string, x: number, y: number, scale: number) {
     const image = this.add.image(x, y, this.safeTexture(key, 'effect_critical_starburst')).setScale(scale).setAlpha(0.92);
+    fitImage(image, image.width * scale, image.height * scale);
     image.setDepth(20);
     this.tweens.add({
       targets: image,

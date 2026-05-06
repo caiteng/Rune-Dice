@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { Die, RuneType } from '../core/types';
 import { RUNE_NAME } from '../data/runes';
 import { RUNE_FACE_ASSET } from '../assets/RuneDiceAssets';
+import { fitImage } from './ImageFit';
 
 export class DiceView {
   rect: Phaser.GameObjects.Rectangle;
@@ -18,12 +19,12 @@ export class DiceView {
   private assigned = false;
 
   constructor(private readonly scene: Phaser.Scene, public die: Die, x: number, y: number, cb: () => void) {
-    this.selectedHighlight = scene.add.image(x, y, 'state_selected_highlight').setDisplaySize(78, 82).setAlpha(0);
-    this.body = scene.add.image(x, y, 'dice_common_body').setDisplaySize(66, 72);
-    this.face = scene.add.image(x, y - 2, RUNE_FACE_ASSET[die.value]).setDisplaySize(40, 44);
-    this.lockedBadge = scene.add.image(x + 22, y - 24, 'state_locked_badge').setDisplaySize(26, 26).setVisible(false);
-    this.sealedBadge = scene.add.image(x, y, 'state_sealed_badge').setDisplaySize(70, 70).setAlpha(0.82).setVisible(false);
-    this.empoweredBadge = scene.add.image(x, y, 'state_empowered_badge').setDisplaySize(74, 74).setAlpha(0.76).setVisible(false);
+    this.selectedHighlight = fitImage(scene.add.image(x, y, 'state_selected_highlight'), 78, 82).setAlpha(0);
+    this.body = fitImage(scene.add.image(x, y, 'dice_common_body'), 66, 72);
+    this.face = fitImage(scene.add.image(x, y - 2, RUNE_FACE_ASSET[die.value]), 40, 44);
+    this.lockedBadge = fitImage(scene.add.image(x + 22, y - 24, 'state_locked_badge'), 26, 26).setVisible(false);
+    this.sealedBadge = fitImage(scene.add.image(x, y, 'state_sealed_badge'), 70, 70).setAlpha(0.82).setVisible(false);
+    this.empoweredBadge = fitImage(scene.add.image(x, y, 'state_empowered_badge'), 74, 74).setAlpha(0.76).setVisible(false);
     this.rect = scene.add.rectangle(x, y, 70, 76, 0xffffff, 0.001).setInteractive();
     this.txt = scene.add.text(x, y - 2, '', { fontSize: '22px', color: '#fff' }).setOrigin(0.5).setVisible(false);
     this.tag = scene.add.text(x, y + 39, '', { fontSize: '12px', color: '#f8fafc' }).setOrigin(0.5);
@@ -33,9 +34,9 @@ export class DiceView {
   }
 
   render() {
-    this.face.setTexture(RUNE_FACE_ASSET[this.die.value]);
+    fitImage(this.face.setTexture(RUNE_FACE_ASSET[this.die.value]), 40, 44);
     this.tag.setText(this.label());
-    this.body.setTexture(this.bodyTexture());
+    fitImage(this.body.setTexture(this.bodyTexture()), 66, 72);
     this.body.setTint(this.rolling ? 0xcbd5e1 : this.assigned ? 0xdbeafe : 0xffffff);
     this.lockedBadge.setVisible(this.die.locked || this.assigned);
     this.sealedBadge.setVisible(this.die.blocked);
@@ -78,8 +79,8 @@ export class DiceView {
           timer.remove(false);
           this.die.value = finalRune;
           [this.body, this.face, this.rect].forEach((target) => target.setRotation(0));
-          this.body.setDisplaySize(66, 72);
-          this.face.setDisplaySize(40, 44);
+          fitImage(this.body, 66, 72);
+          fitImage(this.face, 40, 44);
           this.setRolling(false);
           this.render();
           resolve();

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Button } from '../ui/Button';
 import { SaveManager } from '../save/SaveManager';
+import { addFitImage } from '../ui/ImageFit';
 
 const SAVE_SLOT = 'default';
 const VOLUME_KEY = 'rune-dice-volume';
@@ -36,8 +37,8 @@ export class HomeScene extends Phaser.Scene {
     new Button(this, 195, 432, 250, 58, '设置', () => this.showSettings(), 'secondary');
     new Button(this, 195, 508, 250, 58, '鸣谢', () => this.showCredits(), 'reward');
     new Button(this, 316, 716, 92, 44, '同步', () => this.showSync(), 'primary');
-    this.add.image(74, 716, 'marker_blue').setDisplaySize(28, 40);
-    this.add.image(116, 716, 'mini_defense_icon').setDisplaySize(28, 28);
+    addFitImage(this, 74, 716, 'marker_blue', 28, 40);
+    addFitImage(this, 116, 716, 'mini_defense_icon', 28, 28);
 
     this.messageText = this.add.text(195, 650, '', {
       fontSize: '16px',
@@ -60,7 +61,7 @@ export class HomeScene extends Phaser.Scene {
 
   private showSettings() {
     this.openPanel('设置');
-    this.panelItems.push(this.add.image(100, 254, 'marker_gold').setDisplaySize(26, 38));
+    this.panelItems.push(addFitImage(this, 100, 254, 'marker_gold', 26, 38));
     const label = this.add.text(195, 314, this.volumeLabel(), { fontSize: '22px', color: '#fff', align: 'center' }).setOrigin(0.5);
     const down = new Button(this, 120, 382, 92, 48, '音量 -', () => {
       this.setVolume(Math.max(0, this.volume - 0.1));
@@ -83,7 +84,7 @@ export class HomeScene extends Phaser.Scene {
       wordWrap: { width: 280 },
     }).setOrigin(0.5);
     const sheets = ['dice_sheet', 'enemies_sheet', 'effects_sheet', 'ui_sheet'].map((key, index) =>
-      this.add.image(82 + index * 74, 462, key).setDisplaySize(58, 58),
+      addFitImage(this, 82 + index * 74, 462, key, 58, 58),
     );
     this.panelItems.push(text, ...sheets);
   }
