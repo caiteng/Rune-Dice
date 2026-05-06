@@ -1,8 +1,9 @@
 import type { GameState } from '../core/types';
-import { emptySlots } from '../core/GameState';
+import { createState, emptySlots } from '../core/GameState';
 import { LocalSaveProvider } from './LocalSaveProvider';
 import { RemoteSaveProvider } from './RemoteSaveProvider';
 import type { SaveData } from './SaveTypes';
+import { enemyMechanism } from '../core/EnemyAI';
 
 const SAVE_VERSION = 1;
 
@@ -102,23 +103,37 @@ export function toSaveData(state: GameState): SaveData {
 }
 
 export function applySaveData(data: SaveData): GameState {
-  if (!data.slots) console.warn('旧存档缺少槽位字段，已按新玩法补齐默认槽位。');
+  if (!data?.player || !data?.dice) {
+    console.warn('存档结构无法兼容，将开始新游戏。');
+    return createState(Date.now());
+  }
+  if (!data.slots || !data.slots.discard) console.warn('旧存档缺少弃骰区，已按新玩法补齐默认槽位。');
+  const slotBonus = data.player.slotBonus ?? { attack: 0, defense: 0, tacticGold: 0, discard: 0 };
   const player = {
     ...data.player,
     runeBonus: data.player.runeBonus ?? {},
-    slotBonus: data.player.slotBonus ?? { attack: 0, defense: 0, tacticGold: 0 },
+    slotBonus: {
+      attack: slotBonus.attack ?? 0,
+      defense: slotBonus.defense ?? 0,
+      tacticGold: slotBonus.tacticGold ?? 0,
+      discard: slotBonus.discard ?? 0,
+    },
     nextTurnArmor: data.player.nextTurnArmor ?? 0,
     nextTurnExtraReroll: data.player.nextTurnExtraReroll ?? 0,
+    nextTurnAttackMultiplierBonus: data.player.nextTurnAttackMultiplierBonus ?? 0,
     darkEnergy: data.player.darkEnergy ?? 0,
+    battleFlags: data.player.battleFlags ?? { firstCurseDiscardUsed: false },
   };
+  const slots = { ...emptySlots(), ...(data.slots ?? {}) };
+  const enemy = data.enemy ? { ...data.enemy, mechanism: data.enemy.mechanism ?? enemyMechanism(data.enemy.id) } : null;
   return {
     seed: data.seed,
     phase: data.phase,
     battleIndex: data.battleIndex,
     player,
-    enemy: data.enemy,
+    enemy,
     dice: data.dice,
-    slots: data.slots ?? emptySlots(),
+    slots,
     selectedDieIndex: data.selectedDieIndex ?? null,
     log: data.log,
     pendingRewards: data.pendingRewards,

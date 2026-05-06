@@ -13,9 +13,9 @@ import { applyReward, generateRewards } from '../core/RewardGenerator';
 import { RUNE_NAME } from '../data/runes';
 import { RELICS } from '../data/relics';
 import { SaveManager, applySaveData } from '../save/SaveManager';
-import { ENEMY_PORTRAIT_ASSET, ENEMY_SPRITE_ASSET, RUNE_EFFECT_ASSET } from '../assets/RuneDiceAssets';
+import { ENEMY_PORTRAIT_ASSET, ENEMY_SPRITE_ASSET, RUNE_EFFECT_ASSET, RUNE_FACE_ASSET } from '../assets/RuneDiceAssets';
 import { assignedSlot, isFullyAssigned, previewAssignment, resolveAssignment, slotCapacity } from '../core/SlotResolver';
-import type { Reward, RuneType, SlotType } from '../core/types';
+import type { Reward, RuneType, SlotPreview, SlotType } from '../core/types';
 
 const SAVE_SLOT = 'default';
 type BattleStartMode = 'new' | 'continue';
@@ -31,12 +31,14 @@ const SLOT_LABEL: Record<SlotType, string> = {
   attack: '攻击槽',
   defense: '防御槽',
   tactic: '战术槽',
+  discard: '弃骰区',
 };
 
 const SLOT_COLOR: Record<SlotType, number> = {
   attack: 0x7f1d1d,
   defense: 0x1d4ed8,
   tactic: 0x6d28d9,
+  discard: 0x4c1d95,
 };
 
 export class BattleScene extends Phaser.Scene {
@@ -56,6 +58,7 @@ export class BattleScene extends Phaser.Scene {
   settleBtn!: Button;
   rewardBtns: Button[] = [];
   rewardDecor: Phaser.GameObjects.GameObject[] = [];
+  upgradePanel: Phaser.GameObjects.GameObject[] = [];
   slotCells: SlotCell[] = [];
   isAnimating = false;
   private readonly saveManager = new SaveManager();
@@ -71,36 +74,43 @@ export class BattleScene extends Phaser.Scene {
     this.diceViews = [];
     this.rewardBtns = [];
     this.slotCells = [];
+    this.upgradePanel = [];
     this.isAnimating = false;
     this.startMode = data.mode ?? 'continue';
   }
 
   create() {
     this.add.rectangle(195, 422, 390, 844, 0x0b1020);
-    this.add.image(195, 98, 'panel_wide_boss').setDisplaySize(368, 166);
-    this.enemySprite = fitImage(this.add.image(274, 106, 'enemy_slime_sprite'), 112, 112);
-    this.enemyPortrait = fitImage(this.add.image(54, 48, 'enemy_slime_portrait'), 48, 52);
-    this.add.image(148, 54, 'bar_health_empty').setDisplaySize(176, 24);
-    this.add.image(148, 84, 'bar_armor_empty').setDisplaySize(176, 24);
-    this.enemyHpFill = this.add.image(68, 54, 'bar_health_full').setOrigin(0, 0.5).setDisplaySize(160, 18);
-    this.enemyArmorFill = this.add.image(68, 84, 'bar_armor_full').setOrigin(0, 0.5).setDisplaySize(160, 18);
-    this.enemyText = this.add.text(34, 108, '', { fontSize: '16px', color: '#fff', lineSpacing: 5, wordWrap: { width: 178 } });
+    this.add.image(195, 78, 'panel_wide_boss').setDisplaySize(368, 144);
+    this.enemySprite = fitImage(this.add.image(276, 86, 'enemy_slime_sprite'), 104, 104);
+    this.enemyPortrait = fitImage(this.add.image(54, 36, 'enemy_slime_portrait'), 44, 48);
+    this.add.image(144, 42, 'bar_health_empty').setDisplaySize(168, 22);
+    this.add.image(144, 70, 'bar_armor_empty').setDisplaySize(168, 22);
+    this.enemyHpFill = this.add.image(68, 42, 'bar_health_full').setOrigin(0, 0.5).setDisplaySize(152, 16);
+    this.enemyArmorFill = this.add.image(68, 70, 'bar_armor_full').setOrigin(0, 0.5).setDisplaySize(152, 16);
+    this.enemyText = this.add.text(34, 96, '', { fontSize: '14px', color: '#fff', lineSpacing: 4, wordWrap: { width: 178 } });
 
-    this.hintText = this.add.text(195, 188, '', { fontSize: '15px', color: '#fde68a', align: 'center', wordWrap: { width: 350 } }).setOrigin(0.5);
+    this.add.image(195, 159, 'divider_dark').setDisplaySize(326, 24);
+    this.hintText = this.add.text(195, 176, '', { fontSize: '13px', color: '#fde68a', align: 'center', lineSpacing: 2, wordWrap: { width: 342 } }).setOrigin(0.5);
+    this.add.rectangle(195, 240, 358, 96, 0x111827, 0.46).setStrokeStyle(1, 0x1f2937);
+    this.add.text(26, 198, '骰子', { fontSize: '13px', color: '#93c5fd' });
     this.state.dice.forEach((die, index) => {
       const x = 55 + (index % 5) * 68;
-      const view = new DiceView(this, die, x, 246, () => this.onDieClick(index));
+      const view = new DiceView(this, die, x, 240, () => this.onDieClick(index));
       this.diceViews.push(view);
     });
 
+    this.add.rectangle(195, 388, 358, 182, 0x0f172a, 0.62).setStrokeStyle(1, 0x334155);
+    this.add.text(26, 302, '分配槽', { fontSize: '13px', color: '#93c5fd' });
     this.createSlotUi();
-    this.add.rectangle(195, 451, 358, 100, 0x111827, 0.9).setStrokeStyle(1, 0x334155);
-    this.previewText = this.add.text(28, 408, '', { fontSize: '14px', color: '#dbeafe', lineSpacing: 4, wordWrap: { width: 336 } });
+    this.add.rectangle(195, 528, 358, 118, 0x111827, 0.9).setStrokeStyle(1, 0x334155);
+    this.add.text(26, 474, '结算预览', { fontSize: '13px', color: '#93c5fd' });
+    this.previewText = this.add.text(28, 492, '', { fontSize: '11px', color: '#dbeafe', lineSpacing: 1, wordWrap: { width: 336 } });
 
-    this.rerollBtn = new Button(this, 110, 556, 150, 52, '重掷', () => void this.onLeftAction(), 'secondary');
-    this.settleBtn = new Button(this, 280, 556, 150, 52, '结算', () => void this.onRightAction(), 'primary');
-    this.status = new StatusPanel(this, 20, 602);
-    this.log = new BattleLogView(this, 34, 754);
+    this.rerollBtn = new Button(this, 110, 604, 150, 48, '重掷', () => void this.onLeftAction(), 'secondary');
+    this.settleBtn = new Button(this, 280, 604, 150, 48, '结算', () => void this.onRightAction(), 'primary');
+    this.status = new StatusPanel(this, 20, 632);
+    this.log = new BattleLogView(this, 34, 766);
 
     this.renderAll();
     void this.bootstrap();
@@ -108,15 +118,18 @@ export class BattleScene extends Phaser.Scene {
 
   private createSlotUi() {
     const slotRows: Array<{ slot: SlotType; y: number }> = [
-      { slot: 'attack', y: 318 },
-      { slot: 'defense', y: 362 },
-      { slot: 'tactic', y: 406 },
+      { slot: 'attack', y: 326 },
+      { slot: 'defense', y: 370 },
+      { slot: 'tactic', y: 414 },
+      { slot: 'discard', y: 456 },
     ];
     slotRows.forEach(({ slot, y }) => {
-      this.add.text(28, y - 13, SLOT_LABEL[slot], { fontSize: '15px', color: '#fff' });
-      for (let index = 0; index < slotCapacity(slot); index++) {
-        const rect = this.add.rectangle(118 + index * 58, y, 50, 36, SLOT_COLOR[slot], 0.45).setStrokeStyle(2, 0xf8fafc, 0.5).setInteractive();
-        const label = this.add.text(rect.x, rect.y, '', { fontSize: '16px', color: '#fff', align: 'center' }).setOrigin(0.5);
+      this.add.text(28, y - 14, SLOT_LABEL[slot], { fontSize: '14px', color: '#fff' });
+      const cells = slot === 'discard' ? 5 : slotCapacity(slot);
+      for (let index = 0; index < cells; index++) {
+        const width = slot === 'discard' ? 42 : 54;
+        const rect = this.add.rectangle(116 + index * (slot === 'discard' ? 46 : 62), y, width, 34, SLOT_COLOR[slot], 0.45).setStrokeStyle(2, 0xf8fafc, 0.5).setInteractive();
+        const label = this.add.text(rect.x, rect.y, '', { fontSize: slot === 'discard' ? '12px' : '14px', color: '#fff', align: 'center' }).setOrigin(0.5);
         rect.on('pointerdown', () => this.onSlotClick(slot, index));
         this.slotCells.push({ slot, index, rect, label });
       }
@@ -134,6 +147,7 @@ export class BattleScene extends Phaser.Scene {
       this.renderAll();
       return;
     }
+    if (this.state.enemy) this.pushLog(`机制：${this.state.enemy.mechanism}`, false);
     await this.rollDiceWithAnimation('开局');
     await this.saveGame();
   }
@@ -146,6 +160,7 @@ export class BattleScene extends Phaser.Scene {
 
   private restorePhaseUI() {
     if (this.state.phase === 'reward') this.showRewards();
+    if (this.state.phase === 'upgrade' && this.state.pendingDieUpgrade?.dieIndex !== undefined) this.showUpgradeFacePanel(this.state.pendingDieUpgrade.dieIndex);
   }
 
   pushLog(text: string, shouldSave = true) {
@@ -163,12 +178,9 @@ export class BattleScene extends Phaser.Scene {
     const die = this.state.dice[index];
     if (this.isAnimating) return;
     if (this.state.phase === 'upgrade' && this.state.pendingDieUpgrade) {
-      const rune = this.state.pendingDieUpgrade.rune;
-      die.faces[0] = rune;
-      die.value = rune;
-      this.pushLog(`已将第 ${index + 1} 个骰子的第一个面改造成${RUNE_NAME[rune]}。`);
-      this.state.pendingDieUpgrade = null;
-      this.startNextBattle();
+      this.state.pendingDieUpgrade.dieIndex = index;
+      this.showUpgradeFacePanel(index);
+      this.renderAll();
       return;
     }
     if (this.state.phase !== 'battle') return;
@@ -212,9 +224,11 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     this.removeDieFromSlots(selected);
-    this.state.slots[slot].push(selected);
+    if (slot === 'discard') this.state.slots.discard.push(selected);
+    else this.state.slots[slot].push(selected);
     this.state.selectedDieIndex = null;
     this.pushLog(`${RUNE_NAME[this.state.dice[selected].value]}骰放入${SLOT_LABEL[slot]}。`);
+    this.flashSlot(slot);
     this.renderAll();
   }
 
@@ -222,6 +236,7 @@ export class BattleScene extends Phaser.Scene {
     this.state.slots.attack = this.state.slots.attack.filter((value) => value !== index);
     this.state.slots.defense = this.state.slots.defense.filter((value) => value !== index);
     this.state.slots.tactic = this.state.slots.tactic.filter((value) => value !== index);
+    this.state.slots.discard = (this.state.slots.discard ?? []).filter((value) => value !== index);
   }
 
   private async onLeftAction() {
@@ -259,7 +274,8 @@ export class BattleScene extends Phaser.Scene {
     const enemyArmorBefore = this.state.enemy.armor;
     const playerHpBefore = this.state.player.hp;
     const playerArmorBefore = this.state.player.armor;
-    resolveAssignment(this.state, (text) => this.pushLog(text, false));
+    const preview = resolveAssignment(this.state, (text) => this.pushLog(text, false));
+    await this.playSlotResolutionFeedback(preview);
     this.playRuneEffects(runeValues);
     this.playDeltaPopups(enemyHpBefore, enemyArmorBefore, playerHpBefore, playerArmorBefore);
     if (this.state.enemy.hp <= 0) {
@@ -268,7 +284,7 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const hpBeforeEnemyAct = this.state.player.hp;
-    enemyAct(this.state.enemy, this.state.player, this.state.dice, this.rng, (text) => this.pushLog(text, false));
+    enemyAct(this.state.enemy, this.state.player, this.state.dice, this.rng, (text) => this.pushLog(text, false), { slots: this.state.slots, preview });
     this.playEnemyIntentEffect(hpBeforeEnemyAct);
     if (this.state.player.hp <= 0) {
       this.state.phase = 'defeat';
@@ -277,11 +293,7 @@ export class BattleScene extends Phaser.Scene {
       await this.saveGame();
       return;
     }
-    if (this.isTacticCurseAssigned()) {
-      this.pushLog('战术槽诅咒：敌人下回合意图保持不变。', false);
-    } else {
-      advanceEnemyIntent(this.state.enemy);
-    }
+    advanceEnemyIntent(this.state.enemy);
     await this.startPlayerTurn();
     await this.saveGame();
   }
@@ -314,7 +326,7 @@ export class BattleScene extends Phaser.Scene {
           this.state.phase = 'upgrade';
           this.state.pendingDieUpgrade = { rune: reward.data?.rune ?? 'fire' };
           this.clearRewardButtons();
-          this.pushLog(`选择一个目标骰子，将第一个面改造成${RUNE_NAME[this.state.pendingDieUpgrade.rune]}。`);
+          this.pushLog(`选择一个目标骰子，再选择具体骰面改造成${RUNE_NAME[this.state.pendingDieUpgrade.rune]}。`);
           this.renderAll();
           return;
         }
@@ -333,7 +345,9 @@ export class BattleScene extends Phaser.Scene {
     this.state.pendingRewards = [];
     this.state.player.rerollsLeft = this.state.player.rerollMax;
     this.state.player.armor = 0;
+    this.state.player.battleFlags.firstCurseDiscardUsed = false;
     this.pushLog(`下一场战斗：${this.state.enemy.name}。`, false);
+    this.pushLog(`机制：${this.state.enemy.mechanism}`, false);
     void this.startPlayerTurn(true).then(() => this.saveGame());
   }
 
@@ -345,6 +359,9 @@ export class BattleScene extends Phaser.Scene {
       this.state.player.armor += this.state.player.nextTurnArmor;
       this.pushLog(`战术延迟：获得 ${this.state.player.nextTurnArmor} 点护甲。`, false);
       this.state.player.nextTurnArmor = 0;
+    }
+    if (this.state.player.nextTurnAttackMultiplierBonus > 0) {
+      this.pushLog(`蓄势：本回合攻击槽伤害 +${Math.round(this.state.player.nextTurnAttackMultiplierBonus * 100)}%。`, false);
     }
     const extraReroll = this.state.player.nextTurnExtraReroll;
     this.state.player.nextTurnExtraReroll = 0;
@@ -377,6 +394,45 @@ export class BattleScene extends Phaser.Scene {
     this.rewardDecor = [];
   }
 
+  private showUpgradeFacePanel(dieIndex: number) {
+    this.clearUpgradePanel();
+    const upgrade = this.state.pendingDieUpgrade;
+    const die = this.state.dice[dieIndex];
+    if (!upgrade || !die) return;
+    this.upgradePanel.push(this.add.image(195, 420, 'panel_large_reward').setDisplaySize(344, 230).setDepth(30));
+    this.upgradePanel.push(this.add.image(195, 326, 'tab_gold').setDisplaySize(178, 44).setDepth(31));
+    this.upgradePanel.push(this.add.text(195, 326, '选择要替换的骰面', { fontSize: '20px', color: '#fff', align: 'center' }).setOrigin(0.5).setDepth(32));
+    this.upgradePanel.push(this.add.text(195, 364, `目标：${RUNE_NAME[upgrade.rune]}    骰子：${dieIndex + 1}`, { fontSize: '15px', color: '#fde68a', align: 'center' }).setOrigin(0.5).setDepth(32));
+
+    die.faces.forEach((face, faceIndex) => {
+      const x = 72 + (faceIndex % 3) * 122;
+      const y = 414 + Math.floor(faceIndex / 3) * 64;
+      const rect = this.add.rectangle(x, y, 96, 48, 0x111827, 0.92).setStrokeStyle(2, 0xfbbf24, 0.75).setInteractive().setDepth(31);
+      const icon = fitImage(this.add.image(x - 26, y, this.safeTexture(RUNE_FACE_ASSET[face], 'rune_fire_face')), 28, 28).setDepth(32);
+      const label = this.add.text(x + 10, y, `${faceIndex + 1}. ${RUNE_NAME[face]}`, { fontSize: '14px', color: '#fff', align: 'left' }).setOrigin(0.5).setDepth(32);
+      rect.on('pointerdown', () => this.applyFaceUpgrade(dieIndex, faceIndex));
+      this.upgradePanel.push(rect, icon, label);
+    });
+  }
+
+  private applyFaceUpgrade(dieIndex: number, faceIndex: number) {
+    const upgrade = this.state.pendingDieUpgrade;
+    const die = this.state.dice[dieIndex];
+    if (!upgrade || !die) return;
+    const before = die.faces[faceIndex];
+    die.faces[faceIndex] = upgrade.rune;
+    die.value = upgrade.rune;
+    this.pushLog(`已将第 ${dieIndex + 1} 个骰子的第 ${faceIndex + 1} 个面从${RUNE_NAME[before]}改造成${RUNE_NAME[upgrade.rune]}。`);
+    this.state.pendingDieUpgrade = null;
+    this.clearUpgradePanel();
+    this.startNextBattle();
+  }
+
+  private clearUpgradePanel() {
+    this.upgradePanel.forEach((item) => item.destroy());
+    this.upgradePanel = [];
+  }
+
   private canRollDie(index: number) {
     const die = this.state.dice[index];
     return !die.locked && !die.blocked && !die.forced && assignedSlot(this.state.slots, index) === null;
@@ -391,6 +447,46 @@ export class BattleScene extends Phaser.Scene {
     return tacticIndex !== undefined && this.state.dice[tacticIndex]?.value === 'curse';
   }
 
+  private async playSlotResolutionFeedback(preview: SlotPreview) {
+    this.flashSlot('attack');
+    if (preview.rawDamage > 0 || preview.enemyArmorBreak > 0) {
+      this.playEffect('effect_slash_impact', 274, 92, 0.3);
+      this.playPopup('popup_red_frame', `${preview.hpDamage}`, 282, 64);
+      await this.delay(180);
+    }
+    this.flashSlot('defense');
+    if (preview.armor > 0 || preview.heal > 0) {
+      this.playEffect(preview.heal > 0 ? 'effect_heal_burst' : 'effect_shield_flare', 104, 684, 0.26);
+      await this.delay(160);
+    }
+    this.flashSlot('tactic');
+    if (preview.gold !== 0 || preview.darkEnergyGain > 0 || preview.nextTurnExtraReroll > 0) {
+      this.playEffect(preview.gold !== 0 ? 'effect_coin_burst' : 'effect_rainbow_burst', 250, 684, 0.24);
+      await this.delay(160);
+    }
+    this.flashSlot('discard');
+    if (preview.discardRunes.length > 0) {
+      this.playEffect('effect_dark_blast', 195, 456, 0.22);
+      await this.delay(140);
+    }
+  }
+
+  private flashSlot(slot: SlotType) {
+    const targets = this.slotCells.filter((cell) => cell.slot === slot).map((cell) => cell.rect);
+    this.tweens.add({
+      targets,
+      alpha: 0.85,
+      yoyo: true,
+      repeat: 1,
+      duration: 90,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  private delay(ms: number) {
+    return new Promise<void>((resolve) => this.time.delayedCall(ms, () => resolve()));
+  }
+
   renderAll() {
     const enemy = this.state.enemy;
     if (this.state.phase === 'victory') {
@@ -399,12 +495,12 @@ export class BattleScene extends Phaser.Scene {
     } else if (this.state.phase === 'defeat') {
       this.enemyText.setText('失败！');
     } else {
-      this.enemyText.setText(`${enemy?.name}\n生命 ${enemy?.hp}/${enemy?.maxHp}\n护甲 ${enemy?.armor}\n意图：${enemy?.intent}`);
+      this.enemyText.setText(`${enemy?.name}\n生命 ${enemy?.hp}/${enemy?.maxHp}  护甲 ${enemy?.armor}\n意图：${enemy?.intent}\n机制：${enemy?.mechanism ?? ''}`);
       if (enemy) {
         fitImage(this.enemySprite.setTexture(this.safeTexture(ENEMY_SPRITE_ASSET[enemy.id] ?? '', 'enemy_slime_sprite')), enemy.id === 'fatedealer' ? 124 : 112, enemy.id === 'fatedealer' ? 140 : 112);
         fitImage(this.enemyPortrait.setTexture(this.safeTexture(ENEMY_PORTRAIT_ASSET[enemy.id] ?? '', 'enemy_slime_portrait')), 48, 52);
-        this.setBar(this.enemyHpFill, 160, enemy.hp / enemy.maxHp);
-        this.setBar(this.enemyArmorFill, 160, enemy.armor / Math.max(12, enemy.maxHp));
+        this.setBar(this.enemyHpFill, 152, enemy.hp / enemy.maxHp);
+        this.setBar(this.enemyArmorFill, 152, enemy.armor / Math.max(12, enemy.maxHp));
       }
     }
 
@@ -440,19 +536,16 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const preview = previewAssignment(this.state);
-    const totalDamage = preview.damagePackets.reduce((sum, packet) => sum + packet.amount, 0);
-    const messages = preview.messages.length ? `组合：${preview.messages.map((text) => text.replace(/。$/, '')).join(' / ')}` : '组合：无';
     this.previewText.setText(
-      `当前预览：\n${preview.attackText}\n${preview.defenseText}\n${preview.tacticText}\n` +
-      `总计：伤害 ${totalDamage} / 护甲 +${preview.armor} / 治疗 +${preview.heal} / 金币 ${preview.gold >= 0 ? '+' : ''}${preview.gold} / 自伤 ${preview.selfDamage}\n${messages}`,
+      `${preview.attackText}\n${preview.defenseText}\n${preview.tacticText}\n${preview.discardText}\n${preview.totalText}`,
     );
   }
 
   private hintMessage() {
     if (this.state.phase === 'upgrade') return '选择一个骰子作为改造目标';
     if (this.state.phase !== 'battle') return '';
-    if (this.state.selectedDieIndex !== null) return `已选择第 ${this.state.selectedDieIndex + 1} 个骰子，点击槽位分配；再次点击该骰子可锁定。`;
-    if (!isFullyAssigned(this.state)) return '点击骰子选择，再点击攻击 / 防御 / 战术槽分配。槽中骰子可点回骰子区。';
+    if (this.state.selectedDieIndex !== null) return `已选择第 ${this.state.selectedDieIndex + 1} 个骰子，点击槽位或弃骰区分配；再次点击该骰子可锁定。`;
+    if (!isFullyAssigned(this.state)) return '5 个骰子都要分配到攻击 / 防御 / 战术 / 弃骰之一。槽中骰子可点回骰子区。';
     return '已分配全部骰子，可以结算；也可点槽位骰子移回后继续重掷。';
   }
 
