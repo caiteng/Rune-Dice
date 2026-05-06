@@ -2,9 +2,14 @@ import type { EnemyState, PlayerState, RuneType } from './types';
 import { RUNE_NAME } from '../data/runes';
 
 export type DamagePacket = { source: 'fire' | 'thunder' | 'dark' | 'rainbow' | 'relic'; amount: number };
+type ScoringRune = Exclude<RuneType, 'wild' | 'curse'>;
+const SCORING_RUNES: ScoringRune[] = ['fire', 'water', 'stone', 'thunder', 'gold', 'dark'];
 
 export function resolveRunes(runes: RuneType[], player: PlayerState, enemy: EnemyState, log: (s: string) => void) {
-  const count = (r: RuneType) => runes.filter((x) => x === r).length;
+  const baseCount = (r: RuneType) => runes.filter((x) => x === r).length;
+  const wild = baseCount('wild');
+  const wildTarget = wild > 0 ? chooseWildTarget(runes, player) : null;
+  const count = (r: ScoringRune) => baseCount(r) + (r === wildTarget ? wild : 0);
   const packets: DamagePacket[] = [];
   let heal = 0;
   let armor = 0;
@@ -12,6 +17,7 @@ export function resolveRunes(runes: RuneType[], player: PlayerState, enemy: Enem
   let self = 0;
 
   log(`你掷出了：${runes.map((r) => RUNE_NAME[r]).join('、')}`);
+  if (wildTarget) log(`万能符文转化为${RUNE_NAME[wildTarget]}。`);
 
   const fire = count('fire');
   const fireDamage = ([0, 3, 8, 18, 40, 100][fire] || 0) + fire * (player.runeBonus.fire || 0);
@@ -35,7 +41,8 @@ export function resolveRunes(runes: RuneType[], player: PlayerState, enemy: Enem
   if (darkDamage > 0) packets.push({ source: 'dark', amount: darkDamage });
   self += dark;
 
-  const isRainbow = new Set(runes.filter((r) => r !== 'curse')).size >= 5;
+  const uniqueColors = new Set(runes.filter((r): r is ScoringRune => r !== 'curse' && r !== 'wild'));
+  const isRainbow = uniqueColors.size + wild >= 5;
   if (isRainbow) {
     packets.push({ source: 'rainbow', amount: 20 });
     heal += 5;
@@ -77,6 +84,35 @@ export function resolveRunes(runes: RuneType[], player: PlayerState, enemy: Enem
 
   describeCombo(fire, thunder, dark, dealt, log);
   log(`结算：伤害 ${dealt}，治疗 ${heal}，护甲 +${armor}，金币 +${gold}，自伤 ${self}。`);
+}
+
+function chooseWildTarget(runes: RuneType[], player: PlayerState): ScoringRune {
+  const wild = runes.filter((r) => r === 'wild').length;
+  let bestRune: ScoringRune = 'fire';
+  let bestScore = Number.NEGATIVE_INFINITY;
+  for (const rune of SCORING_RUNES) {
+    const counts = Object.fromEntries(SCORING_RUNES.map((candidate) => {
+      const base = runes.filter((r) => r === candidate).length;
+      return [candidate, base + (candidate === rune ? wild : 0)];
+    })) as Record<ScoringRune, number>;
+    const score = scoreRuneChoice(counts, player);
+    if (score > bestScore) {
+      bestScore = score;
+      bestRune = rune;
+    }
+  }
+  return bestRune;
+}
+
+function scoreRuneChoice(counts: Record<ScoringRune, number>, player: PlayerState) {
+  const fire = ([0, 3, 8, 18, 40, 100][counts.fire] || 0) + counts.fire * (player.runeBonus.fire || 0);
+  const water = counts.water * 2 + (counts.water >= 2 ? 3 : 0);
+  const stone = counts.stone * 3 + (counts.stone >= 3 ? 8 : 0);
+  const thunder = counts.thunder * 4 + (counts.thunder >= 3 ? 6 : 0);
+  const gold = counts.gold * 2 + (counts.gold >= 3 ? 8 : 0);
+  const dark = counts.dark * 8 + (counts.dark >= 3 ? 20 : 0) - counts.dark * 2;
+  const relic = player.relics.includes('FlameCrown') && counts.fire >= 3 ? 10 : 0;
+  return fire + water * 1.5 + stone * 1.2 + thunder + gold + dark + relic;
 }
 
 function reduceDamageForEnemy(packet: DamagePacket, enemy: EnemyState) {

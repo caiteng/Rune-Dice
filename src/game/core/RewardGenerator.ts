@@ -3,19 +3,22 @@ import { Random } from './Random';
 import { RELICS } from '../data/relics';
 import { RUNE_NAME } from '../data/runes';
 
-const UPGRADE_RUNES: RuneType[] = ['fire', 'thunder', 'gold', 'dark'];
+const UPGRADE_RUNES: RuneType[] = ['fire', 'thunder', 'gold', 'dark', 'wild'];
 
-export function generateRewards(_state: GameState, rng: Random): Reward[] {
-  const relic = rng.pick(RELICS);
+export function generateRewards(state: GameState, rng: Random): Reward[] {
+  const unownedRelics = RELICS.filter((relic) => !state.player.relics.includes(relic.id));
+  const relic = unownedRelics.length > 0 ? rng.pick(unownedRelics) : null;
   const upgradeRune = rng.pick(UPGRADE_RUNES);
   const pool: Reward[] = [
     { id: 'maxhp', name: '最大生命 +8', desc: '立即恢复 8 点生命上限与生命。', kind: 'maxhp' },
     { id: 'reroll', name: '重掷次数 +1', desc: '每回合最大重掷次数增加 1。', kind: 'reroll' },
     { id: 'fireup', name: '火焰精通', desc: '每个火符文额外造成 1 点伤害。', kind: 'fireup' },
     { id: `dieface-${upgradeRune}`, name: '骰面改造', desc: `选择一个骰子，将一个面改造成${RUNE_NAME[upgradeRune]}。`, kind: 'dieface', data: { rune: upgradeRune } },
-    { id: `relic-${relic.id}`, name: relic.name, desc: `获得遗物：${relic.desc}`, kind: 'relic', data: { relicId: relic.id } },
   ];
-  return [rng.pick(pool), rng.pick(pool), rng.pick(pool)];
+  if (relic) {
+    pool.push({ id: `relic-${relic.id}`, name: relic.name, desc: `获得遗物：${relic.desc}`, kind: 'relic', data: { relicId: relic.id } });
+  }
+  return pickUnique(pool, 3, rng);
 }
 
 export function applyReward(state: GameState, reward: Reward) {
@@ -29,4 +32,14 @@ export function applyReward(state: GameState, reward: Reward) {
     state.player.relics.push(reward.data.relicId);
     if (reward.data.relicId === 'LuckyCharm') state.player.rerollMax++;
   }
+}
+
+function pickUnique<T>(pool: T[], count: number, rng: Random): T[] {
+  const available = [...pool];
+  const picked: T[] = [];
+  while (available.length > 0 && picked.length < count) {
+    const index = rng.int(0, available.length - 1);
+    picked.push(available.splice(index, 1)[0]);
+  }
+  return picked;
 }

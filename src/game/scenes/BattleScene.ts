@@ -16,6 +16,7 @@ import { RELICS } from '../data/relics';
 import { SaveManager, applySaveData } from '../save/SaveManager';
 
 const SAVE_SLOT = 'default';
+type BattleStartMode = 'new' | 'continue';
 
 export class BattleScene extends Phaser.Scene {
   state = createState(Date.now());
@@ -31,9 +32,19 @@ export class BattleScene extends Phaser.Scene {
   rewardBtns: Button[] = [];
   isAnimating = false;
   private readonly saveManager = new SaveManager();
+  private startMode: BattleStartMode = 'continue';
 
   constructor() {
     super('Battle');
+  }
+
+  init(data: { mode?: BattleStartMode } = {}) {
+    this.state = createState(Date.now());
+    this.rng = new Random(this.state.seed);
+    this.diceViews = [];
+    this.rewardBtns = [];
+    this.isAnimating = false;
+    this.startMode = data.mode ?? 'continue';
   }
 
   create() {
@@ -51,14 +62,14 @@ export class BattleScene extends Phaser.Scene {
       this.diceViews.push(view);
     });
 
-    this.rerollBtn = new Button(this, 110, 560, 150, 54, '重掷', () => void this.onReroll());
-    this.settleBtn = new Button(this, 280, 560, 150, 54, '结算', () => void this.onSettle());
+    this.rerollBtn = new Button(this, 110, 560, 150, 54, '重掷', () => void this.onLeftAction());
+    this.settleBtn = new Button(this, 280, 560, 150, 54, '结算', () => void this.onRightAction());
     this.renderAll();
     void this.bootstrap();
   }
 
   private async bootstrap() {
-    const saved = await this.saveManager.load(SAVE_SLOT);
+    const saved = this.startMode === 'continue' ? await this.saveManager.load(SAVE_SLOT) : null;
     if (saved) {
       this.state = applySaveData(saved);
       this.rng = new Random(this.state.seed);
@@ -115,8 +126,25 @@ export class BattleScene extends Phaser.Scene {
     this.renderAll();
   }
 
+  private async onLeftAction() {
+    if (this.state.phase === 'victory' || this.state.phase === 'defeat') {
+      this.scene.start('Home');
+      return;
+    }
+    await this.onReroll();
+  }
+
+  private async onRightAction() {
+    if (this.state.phase === 'victory' || this.state.phase === 'defeat') {
+      await this.saveManager.remove(SAVE_SLOT);
+      this.scene.start('Battle', { mode: 'new' });
+      return;
+    }
+    await this.onSettle();
+  }
+
   private async onReroll() {
-    if (this.state.player.rerollsLeft <= 0 || this.state.phase !== 'battle' || this.isAnimating) return;
+    if (this.state.player.rerollsLeft <= 0 || this.state.phase !== 'battle' || this.isAnimating || this.rollableDiceCount() <= 0) return;
     this.state.player.rerollsLeft--;
     await this.rollDiceWithAnimation('重掷');
     await this.saveGame();
@@ -196,7 +224,7 @@ export class BattleScene extends Phaser.Scene {
 
   private async rollDiceWithAnimation(reason: '开局' | '重掷' | '新回合') {
     if (this.isAnimating) return;
-    const count = this.state.dice.filter((die) => !die.locked && !die.blocked && !die.forced).length;
+    const count = this.rollableDiceCount();
     if (reason === '重掷') this.pushLog(`重掷 ${count} 个骰子。`, false);
     if (reason === '开局') this.pushLog('开局掷骰。', false);
     if (reason === '新回合') this.pushLog('新回合掷骰。', false);
@@ -215,6 +243,10 @@ export class BattleScene extends Phaser.Scene {
     this.rewardBtns = [];
   }
 
+  private rollableDiceCount() {
+    return this.state.dice.filter((die) => !die.locked && !die.blocked && !die.forced).length;
+  }
+
   renderAll() {
     const enemy = this.state.enemy;
     if (this.state.phase === 'victory') {
@@ -230,7 +262,10 @@ export class BattleScene extends Phaser.Scene {
     this.status.set(`生命 ${this.state.player.hp}/${this.state.player.maxHp}  护甲 ${this.state.player.armor}  金币 ${this.state.player.gold}\n重掷 ${this.state.player.rerollsLeft}/${this.state.player.rerollMax}\n遗物：${relics}`);
     this.log.set(this.state.log);
     this.diceViews.forEach((view) => view.render());
-    this.rerollBtn.setEnabled(this.state.phase === 'battle' && this.state.player.rerollsLeft > 0 && !this.isAnimating);
-    this.settleBtn.setEnabled(this.state.phase === 'battle' && !this.isAnimating);
+    const isFinished = this.state.phase === 'victory' || this.state.phase === 'defeat';
+    this.rerollBtn.setLabel(isFinished ? '回首页' : '重掷');
+    this.settleBtn.setLabel(isFinished ? '再来一局' : '结算');
+    this.rerollBtn.setEnabled(isFinished || (this.state.phase === 'battle' && this.state.player.rerollsLeft > 0 && this.rollableDiceCount() > 0 && !this.isAnimating));
+    this.settleBtn.setEnabled(isFinished || (this.state.phase === 'battle' && !this.isAnimating));
   }
 }
