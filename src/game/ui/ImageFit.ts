@@ -18,3 +18,18 @@ export function fitImage(image: SizedImage, maxWidth: number, maxHeight: number)
 export function addFitImage(scene: Phaser.Scene, x: number, y: number, texture: string, maxWidth: number, maxHeight: number) {
   return fitImage(scene.add.image(x, y, texture), maxWidth, maxHeight);
 }
+
+export function fitImageHeight(image: SizedImage, height: number) {
+  const sourceHeight = image.height;
+  if (sourceHeight <= 0) {
+    image.setDisplaySize(image.displayWidth, height);
+    return image;
+  }
+
+  image.setScale(height / sourceHeight);
+  return image;
+}
+
+export function addHeightImage(scene: Phaser.Scene, x: number, y: number, texture: string, height: number) {
+  return fitImageHeight(scene.add.image(x, y, texture), height);
+}

@@ -12,7 +12,7 @@ export class StatusPanel {
   private readonly energyFillWidth = 150;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    scene.add.image(x + 175, y + 58, 'panel_vertical_common').setDisplaySize(350, 116);
+    scene.add.rectangle(x + 175, y + 58, 350, 116, 0x111827, 0.9).setStrokeStyle(1, 0x334155, 0.85);
     addFitImage(scene, x + 38, y + 18, 'icon_health', 22, 20);
     addFitImage(scene, x + 38, y + 46, 'icon_armor', 22, 22);
     addFitImage(scene, x + 38, y + 74, 'icon_reroll', 22, 22);
