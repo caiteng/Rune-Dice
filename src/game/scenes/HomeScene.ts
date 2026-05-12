@@ -22,27 +22,31 @@ export class HomeScene extends Phaser.Scene {
     this.sound.volume = this.volume;
 
     this.add.rectangle(195, 422, 390, 844, 0x0b1020);
-    this.add.rectangle(195, 118, 342, 178, 0x111827, 0.92).setStrokeStyle(1, 0x334155, 0.9);
-    addHeightImage(this, 92, 52, 'tab_common', 28);
-    addHeightImage(this, 195, 52, 'tab_gold', 30);
-    addHeightImage(this, 298, 52, 'tab_dark', 28);
-    addHeightImage(this, 195, 186, 'divider_gold', 22);
-    this.add.text(195, 88, 'Rune Dice', { fontSize: '34px', color: '#fff', align: 'center' }).setOrigin(0.5);
-    this.add.text(195, 128, '符文骰子', { fontSize: '20px', color: '#fde68a', align: 'center' }).setOrigin(0.5);
-    this.add.text(195, 156, '回合制骰子冒险', { fontSize: '14px', color: '#cbd5e1', align: 'center' }).setOrigin(0.5);
+    this.add.rectangle(195, 420, 360, 792, 0x0f172a, 0.58).setStrokeStyle(1, 0x1e3a5f, 0.7);
+    this.add.rectangle(195, 132, 342, 210, 0x111827, 0.94).setStrokeStyle(2, 0x475569, 0.9);
+    this.add.rectangle(195, 132, 318, 186, 0x0b1020, 0.24).setStrokeStyle(1, 0xfbbf24, 0.28);
+    addHeightImage(this, 84, 52, 'tab_common', 28);
+    addHeightImage(this, 195, 48, 'tab_gold', 32);
+    addHeightImage(this, 306, 52, 'tab_dark', 28);
+    addHeightImage(this, 195, 198, 'divider_gold', 22);
+    this.add.text(195, 88, 'Rune Dice', { fontSize: '36px', color: '#fff', align: 'center' }).setOrigin(0.5);
+    this.add.text(195, 130, '符文骰子', { fontSize: '20px', color: '#fde68a', align: 'center' }).setOrigin(0.5);
+    this.add.text(195, 160, '回合制骰子冒险', { fontSize: '14px', color: '#cbd5e1', align: 'center' }).setOrigin(0.5);
+    this.add.text(330, 218, 'v0.1.0', { fontSize: '12px', color: '#fff', align: 'right' }).setOrigin(1, 0.5);
 
-    new Button(this, 195, 284, 270, 56, '开始游戏', () => void this.startNewGame(), 'primary');
-    this.continueBtn = new Button(this, 195, 364, 270, 56, '继续游戏', () => this.scene.start('Battle', { mode: 'continue' }), 'secondary');
+    new Button(this, 195, 294, 282, 56, '开始游戏', () => void this.startNewGame(), 'primary');
+    this.continueBtn = new Button(this, 195, 370, 282, 56, '继续游戏', () => this.scene.start('Battle', { mode: 'continue' }), 'secondary');
     this.continueBtn.setEnabled(false);
-    new Button(this, 195, 444, 270, 56, '设置', () => this.showSettings(), 'secondary');
-    new Button(this, 195, 524, 270, 56, '鸣谢', () => this.showCredits(), 'reward');
-    this.add.rectangle(195, 724, 330, 76, 0x111827, 0.82).setStrokeStyle(1, 0x334155);
-    new Button(this, 302, 724, 96, 44, '同步', () => this.showSync(), 'primary');
-    addFitImage(this, 74, 724, 'marker_blue', 28, 40);
-    addFitImage(this, 116, 724, 'mini_defense_icon', 28, 28);
-    this.add.text(154, 724, '存档', { fontSize: '16px', color: '#cbd5e1', align: 'center' }).setOrigin(0.5);
+    new Button(this, 195, 446, 282, 56, '设置', () => this.showSettings(), 'secondary');
+    new Button(this, 195, 522, 282, 56, '鸣谢', () => this.showCredits(), 'reward');
+    this.add.rectangle(195, 716, 330, 82, 0x111827, 0.88).setStrokeStyle(1, 0x475569);
+    this.add.rectangle(195, 676, 260, 2, 0xfbbf24, 0.38);
+    new Button(this, 302, 716, 96, 44, '同步', () => this.showSync(), 'primary');
+    addFitImage(this, 74, 716, 'marker_blue', 28, 40);
+    addFitImage(this, 116, 716, 'mini_defense_icon', 28, 28);
+    this.add.text(154, 716, '存档', { fontSize: '16px', color: '#cbd5e1', align: 'center' }).setOrigin(0.5);
 
-    this.messageText = this.add.text(195, 632, '', {
+    this.messageText = this.add.text(195, 626, '', {
       fontSize: '16px',
       color: '#fde68a',
       align: 'center',
@@ -117,7 +121,7 @@ export class HomeScene extends Phaser.Scene {
 
   private openPanel(title: string) {
     this.closePanel();
-    const bg = this.add.rectangle(195, 404, 338, 348, 0x111827, 0.96).setStrokeStyle(2, 0x475569, 0.85);
+    const bg = this.add.rectangle(195, 404, 338, 348, 0x111827, 0.96).setStrokeStyle(2, 0x475569, 0.85).setInteractive();
     const tab = addHeightImage(this, 195, 244, title === '设置' ? 'tab_common' : title === '鸣谢' ? 'tab_gold' : 'tab_danger', 48);
     const titleText = this.add.text(195, 244, title, { fontSize: '24px', color: '#fff', align: 'center' }).setOrigin(0.5);
     const close = new Button(this, 326, 244, 46, 40, '×', () => this.closePanel(), 'danger');

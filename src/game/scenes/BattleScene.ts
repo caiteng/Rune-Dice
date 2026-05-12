@@ -10,7 +10,7 @@ import { rollAll, resetDiceTurn, toggleLock } from '../core/DiceRoller';
 import { advanceEnemyIntent, enemyAct } from '../core/EnemyAI';
 import { ENEMY_ORDER } from '../data/enemies';
 import { applyReward, generateRewards } from '../core/RewardGenerator';
-import { RUNE_NAME } from '../data/runes';
+import { RUNE_EMOJI, RUNE_NAME } from '../data/runes';
 import { RELICS } from '../data/relics';
 import { SaveManager, applySaveData } from '../save/SaveManager';
 import { ENEMY_PORTRAIT_ASSET, ENEMY_SPRITE_ASSET, RUNE_EFFECT_ASSET, RUNE_FACE_ASSET } from '../assets/RuneDiceAssets';
@@ -73,6 +73,7 @@ export class BattleScene extends Phaser.Scene {
     this.rng = new Random(this.state.seed);
     this.diceViews = [];
     this.rewardBtns = [];
+    this.rewardDecor = [];
     this.slotCells = [];
     this.upgradePanel = [];
     this.isAnimating = false;
@@ -81,35 +82,58 @@ export class BattleScene extends Phaser.Scene {
 
   create() {
     this.add.rectangle(195, 422, 390, 844, 0x0b1020);
-    this.add.rectangle(195, 78, 368, 144, 0x111827, 0.94).setStrokeStyle(2, 0x475569, 0.9);
-    this.enemySprite = fitImage(this.add.image(276, 86, 'enemy_slime_sprite'), 104, 104);
-    this.enemyPortrait = fitImage(this.add.image(54, 36, 'enemy_slime_portrait'), 44, 48);
-    this.add.image(144, 42, 'bar_health_empty').setDisplaySize(168, 22);
-    this.add.image(144, 70, 'bar_armor_empty').setDisplaySize(168, 22);
-    this.enemyHpFill = this.add.image(68, 42, 'bar_health_full').setOrigin(0, 0.5).setDisplaySize(152, 16);
-    this.enemyArmorFill = this.add.image(68, 70, 'bar_armor_full').setOrigin(0, 0.5).setDisplaySize(152, 16);
-    this.enemyText = this.add.text(34, 96, '', { fontSize: '14px', color: '#fff', lineSpacing: 4, wordWrap: { width: 178 } });
+    this.add.rectangle(195, 92, 368, 170, 0x111827, 0.94).setStrokeStyle(2, 0x475569, 0.9);
+    this.add.rectangle(286, 92, 116, 132, 0x0b1020, 0.28).setStrokeStyle(1, 0x334155, 0.7);
+    this.enemySprite = fitImage(this.add.image(286, 94, 'enemy_slime_sprite'), 96, 96);
+    this.enemyPortrait = fitImage(this.add.image(52, 34, 'enemy_slime_portrait'), 42, 46);
+    this.add.image(142, 40, 'bar_health_empty').setDisplaySize(164, 22);
+    this.add.image(142, 68, 'bar_armor_empty').setDisplaySize(164, 22);
+    this.enemyHpFill = this.add.image(68, 40, 'bar_health_full').setOrigin(0, 0.5).setDisplaySize(148, 16);
+    this.enemyArmorFill = this.add.image(68, 68, 'bar_armor_full').setOrigin(0, 0.5).setDisplaySize(148, 16);
+    this.enemyText = this.add.text(30, 90, '', {
+      fontSize: '12px',
+      color: '#fff',
+      lineSpacing: 2,
+      fixedWidth: 190,
+      fixedHeight: 76,
+      wordWrap: { width: 190, useAdvancedWrap: true },
+    });
 
-    this.add.rectangle(195, 159, 326, 2, 0x334155, 0.9);
-    this.hintText = this.add.text(195, 172, '', { fontSize: '12px', color: '#fde68a', align: 'center', lineSpacing: 1, wordWrap: { width: 330, useAdvancedWrap: true } }).setOrigin(0.5);
-    this.add.rectangle(195, 240, 358, 96, 0x111827, 0.46).setStrokeStyle(1, 0x1f2937);
-    this.add.text(26, 198, '骰子', { fontSize: '13px', color: '#93c5fd' });
+    this.add.rectangle(195, 178, 326, 2, 0x334155, 0.9);
+    this.hintText = this.add.text(195, 197, '', {
+      fontSize: '12px',
+      color: '#fde68a',
+      align: 'center',
+      lineSpacing: 1,
+      fixedWidth: 330,
+      fixedHeight: 34,
+      wordWrap: { width: 330, useAdvancedWrap: true },
+    }).setOrigin(0.5);
+    this.add.rectangle(195, 260, 358, 96, 0x111827, 0.52).setStrokeStyle(1, 0x334155);
+    this.add.text(26, 218, '骰子', { fontSize: '13px', color: '#93c5fd' });
     this.state.dice.forEach((die, index) => {
       const x = 55 + (index % 5) * 68;
-      const view = new DiceView(this, die, x, 240, () => this.onDieClick(index));
+      const view = new DiceView(this, die, x, 260, () => this.onDieClick(index));
       this.diceViews.push(view);
     });
 
-    this.add.rectangle(195, 388, 358, 182, 0x0f172a, 0.62).setStrokeStyle(1, 0x334155);
-    this.add.text(26, 302, '分配槽', { fontSize: '13px', color: '#93c5fd' });
+    this.add.rectangle(137, 426, 234, 210, 0x0f172a, 0.72).setStrokeStyle(1, 0x334155);
+    this.add.text(28, 330, '分配槽', { fontSize: '13px', color: '#93c5fd' });
     this.createSlotUi();
-    this.add.rectangle(195, 528, 358, 132, 0x111827, 0.9).setStrokeStyle(1, 0x334155);
-    this.add.text(26, 474, '结算预览', { fontSize: '13px', color: '#93c5fd' });
-    this.previewText = this.add.text(28, 492, '', { fontSize: '11px', color: '#dbeafe', lineSpacing: 1, wordWrap: { width: 336, useAdvancedWrap: true } });
+    this.add.rectangle(315, 426, 112, 210, 0x111827, 0.92).setStrokeStyle(1, 0x475569);
+    this.add.text(264, 330, '结算预览', { fontSize: '13px', color: '#93c5fd' });
+    this.previewText = this.add.text(264, 352, '', {
+      fontSize: '10px',
+      color: '#dbeafe',
+      lineSpacing: 2,
+      fixedWidth: 100,
+      fixedHeight: 160,
+      wordWrap: { width: 100, useAdvancedWrap: true },
+    });
 
-    this.rerollBtn = new Button(this, 110, 790, 150, 52, '重掷', () => void this.onLeftAction(), 'secondary');
-    this.settleBtn = new Button(this, 280, 790, 150, 52, '结算', () => void this.onRightAction(), 'primary');
-    this.status = new StatusPanel(this, 20, 632);
+    this.status = new StatusPanel(this, 20, 562);
+    this.rerollBtn = new Button(this, 126, 742, 132, 52, '重掷', () => void this.onLeftAction(), 'secondary');
+    this.settleBtn = new Button(this, 264, 742, 132, 52, '结算', () => void this.onRightAction(), 'primary');
     this.log = new BattleLogView(this);
 
     this.renderAll();
@@ -118,22 +142,24 @@ export class BattleScene extends Phaser.Scene {
 
   private createSlotUi() {
     const slotRows: Array<{ slot: SlotType; y: number }> = [
-      { slot: 'attack', y: 326 },
-      { slot: 'defense', y: 370 },
-      { slot: 'tactic', y: 414 },
-      { slot: 'discard', y: 456 },
+      { slot: 'attack', y: 360 },
+      { slot: 'defense', y: 404 },
+      { slot: 'tactic', y: 448 },
+      { slot: 'discard', y: 496 },
     ];
     slotRows.forEach(({ slot, y }) => {
-      this.add.text(28, y - 14, SLOT_LABEL[slot], { fontSize: '14px', color: '#fff' });
+      this.add.text(28, y - 14, SLOT_LABEL[slot], { fontSize: '13px', color: '#fff' });
       const cells = slot === 'discard' ? 5 : slotCapacity(slot);
       for (let index = 0; index < cells; index++) {
-        const width = slot === 'discard' ? 42 : 54;
-        const rect = this.add.rectangle(116 + index * (slot === 'discard' ? 46 : 62), y, width, 34, SLOT_COLOR[slot], 0.45).setStrokeStyle(2, 0xf8fafc, 0.5).setInteractive();
+        const width = slot === 'discard' ? 24 : 42;
+        const spacing = slot === 'discard' ? 27 : 46;
+        const rect = this.add.rectangle(94 + index * spacing, y, width, 34, SLOT_COLOR[slot], 0.45).setStrokeStyle(2, 0xf8fafc, 0.5).setInteractive();
         const label = this.add.text(rect.x, rect.y, '', {
-          fontSize: slot === 'discard' ? '11px' : '12px',
+          fontSize: slot === 'discard' ? '10px' : '11px',
           color: '#fff',
           align: 'center',
-          fixedWidth: width - 4,
+          fixedWidth: width,
+          wordWrap: { width },
         }).setOrigin(0.5);
         rect.on('pointerdown', () => this.onSlotClick(slot, index));
         this.slotCells.push({ slot, index, rect, label });
@@ -170,7 +196,6 @@ export class BattleScene extends Phaser.Scene {
 
   pushLog(text: string, shouldSave = true) {
     this.state.log.push(text);
-    console.log(text);
     if (shouldSave) void this.saveGame();
   }
 
@@ -458,11 +483,6 @@ export class BattleScene extends Phaser.Scene {
     return this.state.dice.filter((_die, index) => this.canRollDie(index)).length;
   }
 
-  private isTacticCurseAssigned() {
-    const tacticIndex = this.state.slots.tactic[0];
-    return tacticIndex !== undefined && this.state.dice[tacticIndex]?.value === 'curse';
-  }
-
   private async playSlotResolutionFeedback(preview: SlotPreview) {
     await this.flashSlotStep('attack');
     if (preview.rawDamage > 0 || preview.enemyArmorBreak > 0) {
@@ -523,12 +543,12 @@ export class BattleScene extends Phaser.Scene {
     } else if (this.state.phase === 'defeat') {
       this.enemyText.setText('失败！');
     } else {
-      this.enemyText.setText(`${enemy?.name}\n生命 ${enemy?.hp}/${enemy?.maxHp}  护甲 ${enemy?.armor}\n意图：${enemy?.intent}\n机制：${enemy?.mechanism ?? ''}`);
+      this.enemyText.setText(this.enemySummary());
       if (enemy) {
-        fitImage(this.enemySprite.setTexture(this.safeTexture(ENEMY_SPRITE_ASSET[enemy.id] ?? '', 'enemy_slime_sprite')), enemy.id === 'fatedealer' ? 124 : 112, enemy.id === 'fatedealer' ? 140 : 112);
+        fitImage(this.enemySprite.setTexture(this.safeTexture(ENEMY_SPRITE_ASSET[enemy.id] ?? '', 'enemy_slime_sprite')), enemy.id === 'fatedealer' ? 106 : 96, enemy.id === 'fatedealer' ? 124 : 96);
         fitImage(this.enemyPortrait.setTexture(this.safeTexture(ENEMY_PORTRAIT_ASSET[enemy.id] ?? '', 'enemy_slime_portrait')), 48, 52);
-        this.setBar(this.enemyHpFill, 152, enemy.hp / enemy.maxHp);
-        this.setBar(this.enemyArmorFill, 152, enemy.armor / Math.max(12, enemy.maxHp));
+        this.setBar(this.enemyHpFill, 148, enemy.hp / enemy.maxHp);
+        this.setBar(this.enemyArmorFill, 148, enemy.armor / Math.max(12, enemy.maxHp));
       }
     }
 
@@ -553,7 +573,7 @@ export class BattleScene extends Phaser.Scene {
     for (const cell of this.slotCells) {
       const dieIndex = this.state.slots[cell.slot][cell.index];
       const rune = dieIndex === undefined ? null : this.state.dice[dieIndex]?.value;
-      cell.label.setText(rune ? `${dieIndex + 1}:${RUNE_NAME[rune]}` : '+');
+      cell.label.setText(rune ? `${dieIndex + 1}${RUNE_EMOJI[rune]}` : '+');
       cell.rect.setFillStyle(SLOT_COLOR[cell.slot], rune ? 0.78 : 0.38);
     }
   }
@@ -564,9 +584,39 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const preview = previewAssignment(this.state);
-    this.previewText.setText(
-      `${preview.attackText}\n${preview.defenseText}\n${preview.tacticText}\n${preview.discardText}\n${preview.totalText}`,
-    );
+    this.previewText.setText(this.previewSummary(preview));
+  }
+
+  private enemySummary() {
+    const enemy = this.state.enemy;
+    if (!enemy) return '';
+    return [
+      enemy.name,
+      `生命 ${enemy.hp}/${enemy.maxHp}  护甲 ${enemy.armor}`,
+      `意图：${this.compact(enemy.intent, 10)}`,
+      `机制：${this.compact(enemy.mechanism ?? '无', 12)}`,
+    ].join('\n');
+  }
+
+  private previewSummary(preview: SlotPreview) {
+    return [
+      `伤害 ${preview.hpDamage}`,
+      `破甲 ${preview.enemyArmorBreak}`,
+      `护甲 +${preview.armor}`,
+      `治疗 +${preview.heal}`,
+      `金币 ${this.signed(preview.gold)}`,
+      `暗能 +${preview.darkEnergyGain}`,
+      `下回甲 +${preview.nextTurnArmor}`,
+      `自伤 ${preview.selfDamage}`,
+    ].join('\n');
+  }
+
+  private compact(text: string, maxLength: number) {
+    return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+  }
+
+  private signed(value: number) {
+    return value >= 0 ? `+${value}` : String(value);
   }
 
   private hintMessage() {
