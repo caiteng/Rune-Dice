@@ -1,19 +1,25 @@
-.deploy_keys/
-node_modules/
-server/node_modules/
+# Godot
+.godot/
+.import/
+export.cfg
+
+# Exports and builds
+build/
 dist/
+web-build/
+douyin-build/
+*.zip
+
+# Local data and logs
 data/
-
-# Logs
-*.log
 logs/
+*.log
 
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.temp
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
-# Local cache/build metadata
-.cache/
-tsconfig.tsbuildinfo
+# Local deployment secrets
+.deploy_keys/
