@@ -1,75 +1,27 @@
 import Phaser from 'phaser';
+import { createUpgradeOptions } from './survivor/upgrades';
+import {
+  createBaseStats,
+  GAME_HEIGHT,
+  GAME_WIDTH,
+  MATCH_TIME_SECONDS,
+  type Enemy,
+  type FloatingText,
+  type GameMode,
+  type Gem,
+  type Projectile,
+  type Stats,
+  type Upgrade,
+} from './survivor/types';
+import { createEnemySpawnStats, spawnCountForMinute, spawnIntervalForMinute } from './survivor/waves';
+import { INPUT_TUNING, PICKUP_TUNING, PLAYER_TUNING } from './survivor/tuning';
 
-const WIDTH = 390;
-const HEIGHT = 844;
-const MATCH_TIME = 360;
-
-type Mode = 'start' | 'playing' | 'upgrade' | 'gameover';
-
-type Enemy = {
-  id: number;
-  x: number;
-  y: number;
-  radius: number;
-  hp: number;
-  maxHp: number;
-  speed: number;
-  damage: number;
-  color: number;
-  elite: boolean;
-  hurtFlash: number;
-};
-
-type Gem = {
-  x: number;
-  y: number;
-  value: number;
-  radius: number;
-};
-
-type Projectile = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-  damage: number;
-  life: number;
-  color: number;
-  pierce: number;
-  hit: Set<number>;
-};
-
-type FloatingText = {
-  x: number;
-  y: number;
-  text: string;
-  color: string;
-  life: number;
-};
-
-type Upgrade = {
-  title: string;
-  desc: string;
-  apply: () => void;
-};
-
-type Stats = {
-  maxHp: number;
-  hp: number;
-  speed: number;
-  level: number;
-  exp: number;
-  nextExp: number;
-  damage: number;
-  attackSpeed: number;
-  pickup: number;
-  projectiles: number;
-  aura: number;
-};
+const WIDTH = GAME_WIDTH;
+const HEIGHT = GAME_HEIGHT;
+const MATCH_TIME = MATCH_TIME_SECONDS;
 
 class SurvivorScene extends Phaser.Scene {
-  private mode: Mode = 'start';
+  private mode: GameMode = 'start';
   private elapsed = 0;
   private kills = 0;
   private enemyId = 1;
@@ -77,8 +29,9 @@ class SurvivorScene extends Phaser.Scene {
   private eliteTimer = 55;
   private laserTimer = 0;
   private clawTimer = 0;
+  private yarnAngle = 0;
   private player = { x: WIDTH / 2, y: HEIGHT / 2, radius: 17, hurtCooldown: 0 };
-  private stats: Stats = this.createStats();
+  private stats: Stats = createBaseStats();
   private enemies: Enemy[] = [];
   private gems: Gem[] = [];
   private projectiles: Projectile[] = [];
@@ -104,6 +57,7 @@ class SurvivorScene extends Phaser.Scene {
   private buttonText!: Phaser.GameObjects.Text;
   private buttonBg!: Phaser.GameObjects.Rectangle;
   private upgradePanel: Phaser.GameObjects.GameObject[] = [];
+  private resultPanel: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('Survivor');
@@ -177,8 +131,9 @@ class SurvivorScene extends Phaser.Scene {
     this.eliteTimer = 55;
     this.laserTimer = 0.25;
     this.clawTimer = 0.8;
+    this.yarnAngle = 0;
     this.player = { x: WIDTH / 2, y: HEIGHT / 2, radius: 17, hurtCooldown: 0 };
-    this.stats = this.createStats();
+    this.stats = createBaseStats();
     this.enemies = [];
     this.gems = [];
     this.projectiles = [];
@@ -186,26 +141,11 @@ class SurvivorScene extends Phaser.Scene {
     this.upgrades = [];
     this.joystick.active = false;
     this.clearUpgradePanel();
+    this.clearResultPanel();
     this.titleText.setVisible(false);
     this.hintText.setVisible(false);
     this.buttonBg.setVisible(false);
     this.buttonText.setVisible(false);
-  }
-
-  private createStats(): Stats {
-    return {
-      maxHp: 100,
-      hp: 100,
-      speed: 175,
-      level: 1,
-      exp: 0,
-      nextExp: 8,
-      damage: 1,
-      attackSpeed: 1,
-      pickup: 1,
-      projectiles: 1,
-      aura: 1,
-    };
   }
 
   private updatePlaying(delta: number) {
@@ -236,7 +176,7 @@ class SurvivorScene extends Phaser.Scene {
       this.player.y += input.y * this.stats.speed * delta;
     }
     this.player.x = Phaser.Math.Clamp(this.player.x, 24, WIDTH - 24);
-    this.player.y = Phaser.Math.Clamp(this.player.y, 116, HEIGHT - 24);
+    this.player.y = Phaser.Math.Clamp(this.player.y, PLAYER_TUNING.topBound, HEIGHT - 24);
   }
 
   private inputVector() {
@@ -250,14 +190,19 @@ class SurvivorScene extends Phaser.Scene {
 
   private updateWeapons(delta: number) {
     const attackScale = 1 / this.stats.attackSpeed;
+    const laserLevel = this.stats.weapons.laser;
+    const clawLevel = this.stats.weapons.claw;
+    const purrLevel = this.stats.weapons.purr;
+    const yarnLevel = this.stats.weapons.yarn;
+    this.yarnAngle += delta * (2.7 + yarnLevel * 0.18);
     this.laserTimer -= delta;
     this.clawTimer -= delta;
-    if (this.laserTimer <= 0) {
-      this.fireAtNearest(30 * this.stats.damage, 440, 0x7dd3fc, 1);
-      this.laserTimer = Math.max(0.16, 0.62 * attackScale);
+    if (laserLevel > 0 && this.laserTimer <= 0) {
+      this.fireAtNearest((22 + laserLevel * 7) * this.stats.damage, 440, 0x7dd3fc, laserLevel >= 4 ? 2 : 1);
+      this.laserTimer = Math.max(0.14, (0.74 - laserLevel * 0.06) * attackScale);
     }
-    if (this.clawTimer <= 0) {
-      const count = this.stats.projectiles;
+    if (clawLevel > 0 && this.clawTimer <= 0) {
+      const count = Math.min(5, 1 + Math.floor((clawLevel - 1) / 2) + Math.max(0, this.stats.projectiles - 1));
       for (let i = 0; i < count; i++) {
         const angle = -Math.PI / 2 + (i - (count - 1) / 2) * 0.32;
         this.projectiles.push({
@@ -266,20 +211,37 @@ class SurvivorScene extends Phaser.Scene {
           vx: Math.cos(angle) * 330,
           vy: Math.sin(angle) * 330,
           radius: 7,
-          damage: 20 * this.stats.damage,
+          damage: (13 + clawLevel * 5) * this.stats.damage,
           life: 1,
           color: 0xffa366,
-          pierce: 1,
+          pierce: clawLevel >= 4 ? 2 : 1,
           hit: new Set(),
         });
       }
-      this.clawTimer = Math.max(0.26, 1.05 * attackScale);
+      this.clawTimer = Math.max(0.24, (1.1 - clawLevel * 0.05) * attackScale);
     }
-    const auraRadius = 46 + this.stats.aura * 15;
-    const auraDamage = (8 + this.stats.aura * 3) * this.stats.damage * delta;
+    const auraRadius = 42 + purrLevel * 17 + this.stats.aura * 5;
+    const auraDamage = (6 + purrLevel * 4 + this.stats.aura) * this.stats.damage * delta;
     for (const enemy of this.enemies) {
       if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius) {
         this.hurtEnemy(enemy, auraDamage, '#bae6fd');
+      }
+    }
+    if (yarnLevel > 0) {
+      const count = Math.min(5, 1 + Math.floor((yarnLevel + 1) / 2));
+      const orbit = 62 + yarnLevel * 9;
+      const damage = (10 + yarnLevel * 4) * this.stats.damage;
+      for (let i = 0; i < count; i++) {
+        const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
+        const x = this.player.x + Math.cos(angle) * orbit;
+        const y = this.player.y + Math.sin(angle) * orbit;
+        for (const enemy of this.enemies) {
+          if (enemy.yarnCooldown > this.elapsed) continue;
+          if (Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y) <= 14 + enemy.radius) {
+            this.hurtEnemy(enemy, damage, '#fde68a');
+            enemy.yarnCooldown = this.elapsed + 0.28;
+          }
+        }
       }
     }
   }
@@ -349,13 +311,15 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private updateGems(delta: number) {
-    const pickupRadius = 44 * this.stats.pickup;
+    const pickupRadius = PICKUP_TUNING.baseRadius * this.stats.pickup;
     for (const gem of this.gems) {
       const distance = Phaser.Math.Distance.Between(gem.x, gem.y, this.player.x, this.player.y);
       if (distance < pickupRadius) {
         const angle = Phaser.Math.Angle.Between(gem.x, gem.y, this.player.x, this.player.y);
-        gem.x += Math.cos(angle) * 420 * delta;
-        gem.y += Math.sin(angle) * 420 * delta;
+        const pull = 1 - distance / pickupRadius;
+        const speed = Phaser.Math.Linear(PICKUP_TUNING.minMagnetSpeed, PICKUP_TUNING.maxMagnetSpeed, pull);
+        gem.x += Math.cos(angle) * speed * delta;
+        gem.y += Math.sin(angle) * speed * delta;
       }
       if (distance <= gem.radius + this.player.radius + 4) {
         this.gainExp(gem.value);
@@ -378,9 +342,9 @@ class SurvivorScene extends Phaser.Scene {
     this.eliteTimer -= delta;
     const minute = this.elapsed / 60;
     if (this.spawnTimer <= 0) {
-      const count = 1 + Math.floor(minute * 0.9);
+      const count = spawnCountForMinute(minute);
       for (let i = 0; i < count; i++) this.spawnEnemy(false);
-      this.spawnTimer = Phaser.Math.Clamp(0.82 - minute * 0.1, 0.2, 0.82);
+      this.spawnTimer = spawnIntervalForMinute(minute);
     }
     if (this.eliteTimer <= 0) {
       this.spawnEnemy(true);
@@ -407,33 +371,7 @@ class SurvivorScene extends Phaser.Scene {
     }
 
     const minute = this.elapsed / 60;
-    const fast = minute > 2 && Math.random() < 0.28;
-    const tank = minute > 3 && Math.random() < 0.2;
-    let hp = 28 + minute * 8;
-    let speed = 58 + minute * 5;
-    let radius = 14;
-    let damage = 9;
-    let color = 0xcbd5e1;
-    if (fast) {
-      hp = 18 + minute * 6;
-      speed = 112 + minute * 4;
-      radius = 11;
-      color = 0xfacc15;
-    }
-    if (tank) {
-      hp = 68 + minute * 15;
-      speed = 42;
-      radius = 19;
-      damage = 14;
-      color = 0xa78bfa;
-    }
-    if (elite) {
-      hp = 220 + minute * 55;
-      speed = 48;
-      radius = 25;
-      damage = 22;
-      color = 0xfb7185;
-    }
+    const { hp, speed, radius, damage, color } = createEnemySpawnStats(minute, elite);
     this.enemies.push({
       id: this.enemyId++,
       x,
@@ -446,6 +384,7 @@ class SurvivorScene extends Phaser.Scene {
       color,
       elite,
       hurtFlash: 0,
+      yarnCooldown: 0,
     });
   }
 
@@ -464,65 +403,8 @@ class SurvivorScene extends Phaser.Scene {
     this.joystick.active = false;
     this.joystick.vx = 0;
     this.joystick.vy = 0;
-    this.upgrades = this.createUpgrades();
+    this.upgrades = createUpgradeOptions(this.stats);
     this.showUpgradePanel();
-  }
-
-  private createUpgrades(): Upgrade[] {
-    const pool: Upgrade[] = [
-      {
-        title: '猫爪更锋利',
-        desc: '所有武器伤害 +18%。',
-        apply: () => {
-          this.stats.damage *= 1.18;
-        },
-      },
-      {
-        title: '追光更快',
-        desc: '自动攻击频率 +16%。',
-        apply: () => {
-          this.stats.attackSpeed *= 1.16;
-        },
-      },
-      {
-        title: '多重爪印',
-        desc: '猫爪飞镖数量 +1。',
-        apply: () => {
-          this.stats.projectiles = Math.min(5, this.stats.projectiles + 1);
-        },
-      },
-      {
-        title: '呼噜圈扩大',
-        desc: '身边持续伤害范围和强度提升。',
-        apply: () => {
-          this.stats.aura++;
-        },
-      },
-      {
-        title: '灵巧脚步',
-        desc: '移动速度 +12%。',
-        apply: () => {
-          this.stats.speed *= 1.12;
-        },
-      },
-      {
-        title: '小鱼干磁力',
-        desc: '经验拾取范围 +25%。',
-        apply: () => {
-          this.stats.pickup *= 1.25;
-        },
-      },
-      {
-        title: '软垫护身',
-        desc: '最大生命 +20，并恢复 20 点。',
-        apply: () => {
-          this.stats.maxHp += 20;
-          this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 20);
-        },
-      },
-    ];
-    Phaser.Utils.Array.Shuffle(pool);
-    return pool.slice(0, 3);
   }
 
   private showUpgradePanel() {
@@ -558,7 +440,7 @@ class SurvivorScene extends Phaser.Scene {
   private pickUpgrade(index: number) {
     const upgrade = this.upgrades[index];
     if (!upgrade) return;
-    upgrade.apply();
+    upgrade.apply(this.stats);
     this.addText(this.player.x, this.player.y - 36, upgrade.title, '#fde68a');
     this.clearUpgradePanel();
     this.mode = 'playing';
@@ -597,16 +479,76 @@ class SurvivorScene extends Phaser.Scene {
   private endGame(won: boolean) {
     this.mode = 'gameover';
     this.clearUpgradePanel();
-    this.titleText.setText(won ? '天亮了' : '守夜失败').setVisible(true);
-    this.hintText.setText(`坚持 ${this.timeText(this.elapsed)}，清理 ${this.kills} 个怪物，达到 Lv.${this.stats.level}。`).setVisible(true);
+    this.showResultPanel(won);
     this.buttonText.setText('再来一局');
     this.buttonBg.setVisible(true);
     this.buttonText.setVisible(true);
   }
 
+  private showResultPanel(won: boolean) {
+    this.clearResultPanel();
+    const panel = this.add.rectangle(WIDTH / 2, 392, 332, 356, 0x0f172a, 0.97)
+      .setStrokeStyle(2, won ? 0xfacc15 : 0xfb7185, 0.9)
+      .setDepth(20);
+    const eyebrow = this.add.text(WIDTH / 2, 250, won ? '守夜完成' : '仍需再试', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '14px',
+      color: won ? '#fde68a' : '#fecaca',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(21);
+    this.titleText
+      .setText(won ? '天亮了' : '守夜失败')
+      .setPosition(WIDTH / 2, 296)
+      .setDepth(21)
+      .setVisible(true);
+    this.hintText
+      .setText(won ? '猫猫守住了夜晚房间。' : '猫猫被梦魇包围了。')
+      .setPosition(WIDTH / 2, 336)
+      .setDepth(21)
+      .setVisible(true);
+
+    const rows = [
+      ['存活时间', this.timeText(this.elapsed)],
+      ['清理怪物', `${this.kills}`],
+      ['最终等级', `Lv.${this.stats.level}`],
+      ['剩余生命', `${Math.max(0, Math.ceil(this.stats.hp))}/${this.stats.maxHp}`],
+      ['伤害倍率', `x${this.stats.damage.toFixed(2)}`],
+    ];
+
+    rows.forEach(([label, value], index) => {
+      const y = 386 + index * 38;
+      const rowBg = this.add.rectangle(WIDTH / 2, y, 268, 30, 0x1f2937, 0.72).setDepth(21);
+      const labelText = this.add.text(78, y, label, {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '14px',
+        color: '#cbd5e1',
+      }).setOrigin(0, 0.5).setDepth(22);
+      const valueText = this.add.text(312, y, value, {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '15px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }).setOrigin(1, 0.5).setDepth(22);
+      this.resultPanel.push(rowBg, labelText, valueText);
+    });
+
+    this.buttonBg.setPosition(WIDTH / 2, 594).setDepth(22);
+    this.buttonText.setPosition(WIDTH / 2, 594).setDepth(23);
+    this.resultPanel.push(panel, eyebrow);
+  }
+
+  private clearResultPanel() {
+    for (const item of this.resultPanel) item.destroy();
+    this.resultPanel = [];
+    this.titleText?.setPosition(WIDTH / 2, 260).setDepth(0);
+    this.hintText?.setPosition(WIDTH / 2, 330).setDepth(0);
+    this.buttonBg?.setPosition(WIDTH / 2, 520).setDepth(0);
+    this.buttonText?.setPosition(WIDTH / 2, 520).setDepth(0);
+  }
+
   private onPointerDown(pointer: Phaser.Input.Pointer) {
     if (this.mode !== 'playing') return;
-    if (pointer.y < HEIGHT * 0.48) return;
+    if (pointer.y < HEIGHT * INPUT_TUNING.joystickStartYRatio) return;
     this.joystick.active = true;
     this.joystick.pointerId = pointer.id;
     this.joystick.cx = pointer.x;
@@ -622,14 +564,14 @@ class SurvivorScene extends Phaser.Scene {
     const dx = pointer.x - this.joystick.cx;
     const dy = pointer.y - this.joystick.cy;
     const distance = Math.max(1, Math.hypot(dx, dy));
-    const radius = 48;
+    const radius = INPUT_TUNING.joystickRadius;
     const scale = Math.min(radius, distance) / distance;
     const ox = dx * scale;
     const oy = dy * scale;
     this.joystick.kx = this.joystick.cx + ox;
     this.joystick.ky = this.joystick.cy + oy;
-    this.joystick.vx = Math.abs(ox) > 4 ? ox / radius : 0;
-    this.joystick.vy = Math.abs(oy) > 4 ? oy / radius : 0;
+    this.joystick.vx = Math.abs(ox) > INPUT_TUNING.joystickDeadzone ? ox / radius : 0;
+    this.joystick.vy = Math.abs(oy) > INPUT_TUNING.joystickDeadzone ? oy / radius : 0;
   }
 
   private onPointerUp(pointer: Phaser.Input.Pointer) {
@@ -677,9 +619,10 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawWorld() {
-    const auraRadius = 46 + this.stats.aura * 15;
+    const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5;
     this.graphics.fillStyle(0x7dd3fc, 0.1).fillCircle(this.player.x, this.player.y, auraRadius);
     this.graphics.lineStyle(2, 0x7dd3fc, 0.46).strokeCircle(this.player.x, this.player.y, auraRadius);
+    this.drawYarnOrbits();
     for (const gem of this.gems) {
       this.graphics.fillStyle(gem.value > 1 ? 0xc084fc : 0x67e8f9, 1).fillCircle(gem.x, gem.y, gem.radius);
     }
@@ -712,7 +655,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawHud() {
-    this.graphics.fillStyle(0x020617, 0.68).fillRoundedRect(12, 12, WIDTH - 24, 90, 6);
+    this.graphics.fillStyle(0x020617, 0.68).fillRoundedRect(12, 12, WIDTH - 24, 108, 6);
     this.graphics.fillStyle(0x3f1d2a, 1).fillRect(24, 30, 150, 9);
     this.graphics.fillStyle(0xfb7185, 1).fillRect(24, 30, 150 * Phaser.Math.Clamp(this.stats.hp / this.stats.maxHp, 0, 1), 9);
     this.graphics.fillStyle(0x164e63, 1).fillRect(24, 48, 150, 8);
@@ -721,15 +664,28 @@ class SurvivorScene extends Phaser.Scene {
       `Lv.${this.stats.level}   击败 ${this.kills}`,
       `生命 ${Math.ceil(this.stats.hp)}/${this.stats.maxHp}`,
       `时间 ${this.timeText(MATCH_TIME - this.elapsed)}`,
+      `武器 光${this.stats.weapons.laser} 爪${this.stats.weapons.claw} 呼${this.stats.weapons.purr} 线${this.stats.weapons.yarn}`,
       `伤害 x${this.stats.damage.toFixed(2)}  攻速 x${this.stats.attackSpeed.toFixed(2)}`,
     ].join('\n'));
   }
 
   private drawJoystick() {
     if (!this.joystick.active) return;
-    this.graphics.fillStyle(0xffffff, 0.12).fillCircle(this.joystick.cx, this.joystick.cy, 48);
-    this.graphics.lineStyle(2, 0xffffff, 0.35).strokeCircle(this.joystick.cx, this.joystick.cy, 48);
+    this.graphics.fillStyle(0xffffff, 0.12).fillCircle(this.joystick.cx, this.joystick.cy, INPUT_TUNING.joystickRadius);
+    this.graphics.lineStyle(2, 0xffffff, 0.35).strokeCircle(this.joystick.cx, this.joystick.cy, INPUT_TUNING.joystickRadius);
     this.graphics.fillStyle(0xfacc15, 0.9).fillCircle(this.joystick.kx, this.joystick.ky, 20);
+  }
+
+  private drawYarnOrbits() {
+    const level = this.stats.weapons.yarn;
+    if (level <= 0) return;
+    const count = Math.min(5, 1 + Math.floor((level + 1) / 2));
+    const orbit = 62 + level * 9;
+    this.graphics.lineStyle(1, 0xfde68a, 0.24).strokeCircle(this.player.x, this.player.y, orbit);
+    for (let i = 0; i < count; i++) {
+      const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
+      this.graphics.fillStyle(0xfacc15, 1).fillCircle(this.player.x + Math.cos(angle) * orbit, this.player.y + Math.sin(angle) * orbit, 12);
+    }
   }
 
   private timeText(value: number) {
