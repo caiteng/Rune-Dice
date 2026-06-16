@@ -1,4 +1,4 @@
-name: Web Preview Deploy
+name: Auto Deploy
 
 on:
   push:
@@ -7,46 +7,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: cat-night-watch-web-preview
+  group: rune-dice-prod-deploy
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: 武汉2C2G
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Godot 4.5
-        run: |
-          set -euo pipefail
-          mkdir -p .godot-bin .godot-templates
-          curl -L -o .godot-bin/godot.zip https://github.com/godotengine/godot/releases/download/4.5-stable/Godot_v4.5-stable_linux.x86_64.zip
-          unzip -q .godot-bin/godot.zip -d .godot-bin
-          chmod +x .godot-bin/Godot_v4.5-stable_linux.x86_64
-          curl -L -o .godot-templates/templates.tpz https://github.com/godotengine/godot/releases/download/4.5-stable/Godot_v4.5-stable_export_templates.tpz
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.stable"
-          unzip -p .godot-templates/templates.tpz templates/web_nothreads_debug.zip > "$HOME/.local/share/godot/export_templates/4.5.stable/web_nothreads_debug.zip"
-          unzip -p .godot-templates/templates.tpz templates/web_nothreads_release.zip > "$HOME/.local/share/godot/export_templates/4.5.stable/web_nothreads_release.zip"
-
-      - name: Export Web preview
-        run: |
-          set -euo pipefail
-          mkdir -p web-build
-          ./.godot-bin/Godot_v4.5-stable_linux.x86_64 --headless --path . --export-release "Web Preview" web-build/index.html
-
-      - name: Upload Web preview to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "web-build,Dockerfile,docker-compose.yml,nginx.conf"
-          target: "/opt/cat-night-watch/app"
-          rm: true
-
-      - name: Publish Docker Web preview
+      - name: Deploy to production via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -56,6 +25,21 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /opt/cat-night-watch/app
-            docker compose up -d --build
-            echo "Published Cat Night Watch Docker preview on port 9999"
+            export REPO_URL='${{ github.server_url }}/${{ github.repository }}.git'
+            export BRANCH='main'
+            export APP_DIR='/opt/rune-dice/app'
+
+            echo '[github-actions] Triggered by: ${{ github.event_name }}'
+            echo '[github-actions] Repository: ${{ github.repository }}'
+            echo '[github-actions] Branch: main'
+            echo "[github-actions] Deploy dir: ${APP_DIR}"
+
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              echo "[github-actions] App repo missing; cloning ${REPO_URL}"
+              mkdir -p "$(dirname "${APP_DIR}")"
+              rm -rf "${APP_DIR}"
+              git clone --branch "${BRANCH}" "${REPO_URL}" "${APP_DIR}"
+            fi
+
+            cd "${APP_DIR}"
+            bash ./scripts/deploy.sh

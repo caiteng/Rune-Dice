@@ -1,0 +1,1 @@
+export class Random{constructor(private seed=Date.now()){} next(){this.seed=(1664525*this.seed+1013904223)%4294967296;return this.seed/4294967296} int(min:number,max:number){return Math.floor(this.next()*(max-min+1))+min} pick<T>(arr:T[]){return arr[this.int(0,arr.length-1)]} getSeed(){return this.seed}}

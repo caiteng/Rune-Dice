@@ -1,0 +1,1362 @@
+[
+  {
+    "id": "rune_fire_face",
+    "category": "dice",
+    "file": "dice/rune_fire_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      31,
+      150,
+      187,
+      326
+    ],
+    "output_size": [
+      165,
+      185
+    ],
+    "usage": "火符文骰面。用于火骰面、火流奖励、火焰组合展示。"
+  },
+  {
+    "id": "rune_water_face",
+    "category": "dice",
+    "file": "dice/rune_water_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      199,
+      151,
+      355,
+      327
+    ],
+    "output_size": [
+      180,
+      184
+    ],
+    "usage": "水符文骰面。用于治疗、生命回复相关骰面。"
+  },
+  {
+    "id": "rune_stone_face",
+    "category": "dice",
+    "file": "dice/rune_stone_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      366,
+      150,
+      514,
+      326
+    ],
+    "output_size": [
+      172,
+      184
+    ],
+    "usage": "石符文骰面。用于护甲、防御相关骰面。"
+  },
+  {
+    "id": "rune_thunder_face",
+    "category": "dice",
+    "file": "dice/rune_thunder_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      524,
+      150,
+      669,
+      326
+    ],
+    "output_size": [
+      169,
+      185
+    ],
+    "usage": "雷符文骰面。用于连击/雷击伤害骰面。"
+  },
+  {
+    "id": "rune_gold_face",
+    "category": "dice",
+    "file": "dice/rune_gold_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      678,
+      150,
+      828,
+      326
+    ],
+    "output_size": [
+      174,
+      184
+    ],
+    "usage": "金符文骰面。用于金币、经济、商店相关骰面。"
+  },
+  {
+    "id": "rune_dark_face",
+    "category": "dice",
+    "file": "dice/rune_dark_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      837,
+      151,
+      965,
+      326
+    ],
+    "output_size": [
+      152,
+      184
+    ],
+    "usage": "暗符文骰面。用于卖血、高伤、暗系流派。"
+  },
+  {
+    "id": "rune_wild_face",
+    "category": "dice",
+    "file": "dice/rune_wild_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      973,
+      151,
+      1101,
+      326
+    ],
+    "output_size": [
+      152,
+      184
+    ],
+    "usage": "万能符文骰面。用于百搭/彩虹/稀有骰面。"
+  },
+  {
+    "id": "rune_curse_face",
+    "category": "dice",
+    "file": "dice/rune_curse_face.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      1109,
+      151,
+      1240,
+      326
+    ],
+    "output_size": [
+      148,
+      184
+    ],
+    "usage": "诅咒符文骰面。用于诅咒法师、负面骰面、惩罚事件。"
+  },
+  {
+    "id": "dice_common_body",
+    "category": "dice",
+    "file": "dice/dice_common_body.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      57,
+      375,
+      297,
+      649
+    ],
+    "output_size": [
+      249,
+      283
+    ],
+    "usage": "普通六面骰主体。用于初始骰和普通骰投掷动画。"
+  },
+  {
+    "id": "dice_rare_body",
+    "category": "dice",
+    "file": "dice/dice_rare_body.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      357,
+      374,
+      595,
+      651
+    ],
+    "output_size": [
+      247,
+      286
+    ],
+    "usage": "稀有/强化骰主体。用于升级骰、奖励骰、强化状态。"
+  },
+  {
+    "id": "dice_cursed_body",
+    "category": "dice",
+    "file": "dice/dice_cursed_body.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      644,
+      373,
+      888,
+      656
+    ],
+    "output_size": [
+      253,
+      292
+    ],
+    "usage": "诅咒骰主体。用于诅咒、腐化、负面骰。"
+  },
+  {
+    "id": "dice_boss_body",
+    "category": "dice",
+    "file": "dice/dice_boss_body.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      944,
+      360,
+      1191,
+      664
+    ],
+    "output_size": [
+      256,
+      326
+    ],
+    "usage": "Boss/特殊骰主体。用于命运庄家、特殊事件或精英奖励。"
+  },
+  {
+    "id": "state_locked_badge",
+    "category": "dice",
+    "file": "dice/state_locked_badge.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      50,
+      701,
+      292,
+      940
+    ],
+    "output_size": [
+      251,
+      248
+    ],
+    "usage": "锁定状态徽章。骰子被玩家锁定时叠加显示。"
+  },
+  {
+    "id": "state_sealed_badge",
+    "category": "dice",
+    "file": "dice/state_sealed_badge.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      347,
+      699,
+      583,
+      937
+    ],
+    "output_size": [
+      245,
+      247
+    ],
+    "usage": "封印/阻断状态徽章。敌人封印骰子重掷时叠加显示。"
+  },
+  {
+    "id": "state_empowered_badge",
+    "category": "dice",
+    "file": "dice/state_empowered_badge.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      630,
+      678,
+      908,
+      958
+    ],
+    "output_size": [
+      287,
+      289
+    ],
+    "usage": "强化状态徽章。骰子被强化、双倍或稀有化时叠加显示。"
+  },
+  {
+    "id": "state_selected_highlight",
+    "category": "dice",
+    "file": "dice/state_selected_highlight.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      943,
+      671,
+      1222,
+      959
+    ],
+    "output_size": [
+      287,
+      310
+    ],
+    "usage": "选中高亮框。用于目标骰选择、奖励选择、当前悬停/点击反馈。"
+  },
+  {
+    "id": "icon_reroll",
+    "category": "dice",
+    "file": "dice/icon_reroll.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      130,
+      990,
+      299,
+      1172
+    ],
+    "output_size": [
+      178,
+      191
+    ],
+    "usage": "重掷图标。用于重掷按钮和战术区提示。"
+  },
+  {
+    "id": "icon_health",
+    "category": "dice",
+    "file": "dice/icon_health.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      375,
+      994,
+      574,
+      1176
+    ],
+    "output_size": [
+      207,
+      191
+    ],
+    "usage": "生命图标。用于玩家血量、治疗奖励、存档摘要。"
+  },
+  {
+    "id": "icon_armor",
+    "category": "dice",
+    "file": "dice/icon_armor.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      666,
+      985,
+      850,
+      1185
+    ],
+    "output_size": [
+      193,
+      209
+    ],
+    "usage": "护甲图标。用于护甲条、防御槽、敌人意图。"
+  },
+  {
+    "id": "icon_gold",
+    "category": "dice",
+    "file": "dice/icon_gold.png",
+    "source_sheet": "dice",
+    "source_bbox_xyxy": [
+      936,
+      996,
+      1114,
+      1178
+    ],
+    "output_size": [
+      187,
+      191
+    ],
+    "usage": "金币图标。用于金币数量、经济奖励、商店入口。"
+  },
+  {
+    "id": "enemy_slime_sprite",
+    "category": "enemies",
+    "file": "enemies/enemy_slime_sprite.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      25,
+      120,
+      350,
+      415
+    ],
+    "output_size": [
+      302,
+      288
+    ],
+    "usage": "史莱姆主战斗立绘。用于第一场普通敌人。"
+  },
+  {
+    "id": "enemy_slime_portrait",
+    "category": "enemies",
+    "file": "enemies/enemy_slime_portrait.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      360,
+      160,
+      590,
+      415
+    ],
+    "output_size": [
+      204,
+      216
+    ],
+    "usage": "史莱姆头像。用于敌人信息栏/图鉴。"
+  },
+  {
+    "id": "enemy_skeleton_sprite",
+    "category": "enemies",
+    "file": "enemies/enemy_skeleton_sprite.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      610,
+      55,
+      965,
+      435
+    ],
+    "output_size": [
+      317,
+      341
+    ],
+    "usage": "骷髅兵主战斗立绘。用于第二场敌人。"
+  },
+  {
+    "id": "enemy_skeleton_portrait",
+    "category": "enemies",
+    "file": "enemies/enemy_skeleton_portrait.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      970,
+      155,
+      1210,
+      415
+    ],
+    "output_size": [
+      207,
+      224
+    ],
+    "usage": "骷髅兵头像。"
+  },
+  {
+    "id": "enemy_stone_guardian_sprite",
+    "category": "enemies",
+    "file": "enemies/enemy_stone_guardian_sprite.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      10,
+      410,
+      390,
+      790
+    ],
+    "output_size": [
+      371,
+      346
+    ],
+    "usage": "石像守卫主战斗立绘。用于高护甲敌人。"
+  },
+  {
+    "id": "enemy_stone_guardian_portrait",
+    "category": "enemies",
+    "file": "enemies/enemy_stone_guardian_portrait.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      360,
+      520,
+      595,
+      785
+    ],
+    "output_size": [
+      227,
+      220
+    ],
+    "usage": "石像守卫头像。"
+  },
+  {
+    "id": "enemy_thief_sprite",
+    "category": "enemies",
+    "file": "enemies/enemy_thief_sprite.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      610,
+      430,
+      960,
+      790
+    ],
+    "output_size": [
+      305,
+      342
+    ],
+    "usage": "小偷主战斗立绘。用于偷金币敌人。"
+  },
+  {
+    "id": "enemy_thief_portrait",
+    "category": "enemies",
+    "file": "enemies/enemy_thief_portrait.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      970,
+      520,
+      1210,
+      785
+    ],
+    "output_size": [
+      207,
+      219
+    ],
+    "usage": "小偷头像。"
+  },
+  {
+    "id": "enemy_curse_mage_sprite",
+    "category": "enemies",
+    "file": "enemies/enemy_curse_mage_sprite.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      20,
+      770,
+      395,
+      1200
+    ],
+    "output_size": [
+      364,
+      414
+    ],
+    "usage": "诅咒法师主战斗立绘。用于诅咒骰敌人。"
+  },
+  {
+    "id": "enemy_curse_mage_portrait",
+    "category": "enemies",
+    "file": "enemies/enemy_curse_mage_portrait.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      360,
+      885,
+      595,
+      1145
+    ],
+    "output_size": [
+      226,
+      240
+    ],
+    "usage": "诅咒法师头像。"
+  },
+  {
+    "id": "enemy_fate_dealer_sprite",
+    "category": "enemies",
+    "file": "enemies/enemy_fate_dealer_sprite.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      595,
+      760,
+      980,
+      1210
+    ],
+    "output_size": [
+      324,
+      424
+    ],
+    "usage": "命运庄家 Boss 主战斗立绘。用于最终 Boss。"
+  },
+  {
+    "id": "enemy_fate_dealer_portrait",
+    "category": "enemies",
+    "file": "enemies/enemy_fate_dealer_portrait.png",
+    "source_sheet": "enemies",
+    "source_bbox_xyxy": [
+      965,
+      875,
+      1225,
+      1155
+    ],
+    "output_size": [
+      216,
+      227
+    ],
+    "usage": "命运庄家 Boss 头像。"
+  },
+  {
+    "id": "effect_fire_burst",
+    "category": "effects",
+    "file": "effects/effect_fire_burst.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      39,
+      51,
+      319,
+      362
+    ],
+    "output_size": [
+      289,
+      321
+    ],
+    "usage": "火焰爆发。火符文结算、三火/四火/五火组合特效。"
+  },
+  {
+    "id": "effect_lightning_strike",
+    "category": "effects",
+    "file": "effects/effect_lightning_strike.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      355,
+      2,
+      603,
+      367
+    ],
+    "output_size": [
+      259,
+      372
+    ],
+    "usage": "雷击特效。雷符文伤害、连击结算。"
+  },
+  {
+    "id": "effect_stone_impact",
+    "category": "effects",
+    "file": "effects/effect_stone_impact.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      640,
+      92,
+      895,
+      366
+    ],
+    "output_size": [
+      272,
+      291
+    ],
+    "usage": "岩石冲击。石符文、护甲生成、石像敌人攻击。"
+  },
+  {
+    "id": "effect_heal_burst",
+    "category": "effects",
+    "file": "effects/effect_heal_burst.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      906,
+      51,
+      1209,
+      371
+    ],
+    "output_size": [
+      320,
+      329
+    ],
+    "usage": "治疗圣光。水符文治疗、生命恢复。"
+  },
+  {
+    "id": "effect_coin_burst",
+    "category": "effects",
+    "file": "effects/effect_coin_burst.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      40,
+      408,
+      309,
+      680
+    ],
+    "output_size": [
+      276,
+      296
+    ],
+    "usage": "金币爆发。金符文结算、奖励金币。"
+  },
+  {
+    "id": "effect_dark_blast",
+    "category": "effects",
+    "file": "effects/effect_dark_blast.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      345,
+      421,
+      606,
+      677
+    ],
+    "output_size": [
+      271,
+      273
+    ],
+    "usage": "暗影爆破。暗符文卖血伤害。"
+  },
+  {
+    "id": "effect_rainbow_burst",
+    "category": "effects",
+    "file": "effects/effect_rainbow_burst.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      635,
+      403,
+      912,
+      676
+    ],
+    "output_size": [
+      286,
+      282
+    ],
+    "usage": "彩虹爆发。五色组合/万能符文触发。"
+  },
+  {
+    "id": "effect_curse_cloud",
+    "category": "effects",
+    "file": "effects/effect_curse_cloud.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      934,
+      389,
+      1197,
+      682
+    ],
+    "output_size": [
+      272,
+      302
+    ],
+    "usage": "诅咒烟雾。诅咒法师、诅咒骰、负面状态。"
+  },
+  {
+    "id": "effect_shield_flare",
+    "category": "effects",
+    "file": "effects/effect_shield_flare.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      48,
+      691,
+      300,
+      980
+    ],
+    "output_size": [
+      260,
+      306
+    ],
+    "usage": "护盾光效。获得护甲、防御槽结算。"
+  },
+  {
+    "id": "effect_slash_impact",
+    "category": "effects",
+    "file": "effects/effect_slash_impact.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      337,
+      704,
+      588,
+      984
+    ],
+    "output_size": [
+      260,
+      288
+    ],
+    "usage": "斩击/受击特效。普通伤害、敌人攻击。"
+  },
+  {
+    "id": "effect_critical_starburst",
+    "category": "effects",
+    "file": "effects/effect_critical_starburst.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      637,
+      691,
+      904,
+      995
+    ],
+    "output_size": [
+      276,
+      314
+    ],
+    "usage": "暴击星爆。高倍率组合、Boss 受击。"
+  },
+  {
+    "id": "effect_reroll_swirl",
+    "category": "effects",
+    "file": "effects/effect_reroll_swirl.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      926,
+      737,
+      1187,
+      983
+    ],
+    "output_size": [
+      274,
+      263
+    ],
+    "usage": "重掷旋涡。重掷按钮、骰子滚动背景。"
+  },
+  {
+    "id": "popup_red_frame",
+    "category": "effects",
+    "file": "effects/popup_red_frame.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      54,
+      1024,
+      312,
+      1203
+    ],
+    "output_size": [
+      267,
+      188
+    ],
+    "usage": "红色数字弹窗底板。用于伤害数字。"
+  },
+  {
+    "id": "popup_blue_frame",
+    "category": "effects",
+    "file": "effects/popup_blue_frame.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      359,
+      1025,
+      606,
+      1205
+    ],
+    "output_size": [
+      257,
+      189
+    ],
+    "usage": "蓝色数字弹窗底板。用于护甲/雷击数字。"
+  },
+  {
+    "id": "popup_green_frame",
+    "category": "effects",
+    "file": "effects/popup_green_frame.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      646,
+      1034,
+      893,
+      1200
+    ],
+    "output_size": [
+      266,
+      180
+    ],
+    "usage": "绿色数字弹窗底板。用于治疗数字。"
+  },
+  {
+    "id": "popup_gold_frame",
+    "category": "effects",
+    "file": "effects/popup_gold_frame.png",
+    "source_sheet": "effects",
+    "source_bbox_xyxy": [
+      944,
+      1027,
+      1198,
+      1204
+    ],
+    "output_size": [
+      270,
+      186
+    ],
+    "usage": "金色数字弹窗底板。用于金币/奖励数字。"
+  },
+  {
+    "id": "panel_vertical_common",
+    "category": "ui",
+    "file": "ui/panel_vertical_common.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      46,
+      51,
+      270,
+      489
+    ],
+    "output_size": [
+      233,
+      447
+    ],
+    "usage": "竖向普通面板。用于玩家状态、敌人详情、帮助说明。"
+  },
+  {
+    "id": "panel_large_reward",
+    "category": "ui",
+    "file": "ui/panel_large_reward.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      299,
+      55,
+      608,
+      493
+    ],
+    "output_size": [
+      318,
+      447
+    ],
+    "usage": "大型奖励/弹窗面板。用于战斗胜利奖励、设置窗口。"
+  },
+  {
+    "id": "panel_narrow_curse",
+    "category": "ui",
+    "file": "ui/panel_narrow_curse.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      631,
+      63,
+      816,
+      489
+    ],
+    "output_size": [
+      194,
+      436
+    ],
+    "usage": "窄竖向暗系面板。用于诅咒说明、Boss 状态。"
+  },
+  {
+    "id": "panel_wide_boss",
+    "category": "ui",
+    "file": "ui/panel_wide_boss.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      838,
+      59,
+      1220,
+      489
+    ],
+    "output_size": [
+      391,
+      439
+    ],
+    "usage": "宽屏 Boss/战斗面板。用于敌人区域或战斗事件弹窗。"
+  },
+  {
+    "id": "button_primary_blue",
+    "category": "ui",
+    "file": "ui/button_primary_blue.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      46,
+      529,
+      347,
+      669
+    ],
+    "output_size": [
+      310,
+      149
+    ],
+    "usage": "主按钮皮肤。用于确认、结算、继续。"
+  },
+  {
+    "id": "button_secondary_green",
+    "category": "ui",
+    "file": "ui/button_secondary_green.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      381,
+      530,
+      616,
+      670
+    ],
+    "output_size": [
+      243,
+      149
+    ],
+    "usage": "次级按钮皮肤。用于重掷、恢复、普通动作。"
+  },
+  {
+    "id": "button_reward_purple",
+    "category": "ui",
+    "file": "ui/button_reward_purple.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      668,
+      529,
+      905,
+      671
+    ],
+    "output_size": [
+      246,
+      151
+    ],
+    "usage": "奖励/卡牌按钮皮肤。用于遗物/奖励选择。"
+  },
+  {
+    "id": "button_danger_red",
+    "category": "ui",
+    "file": "ui/button_danger_red.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      937,
+      527,
+      1192,
+      672
+    ],
+    "output_size": [
+      264,
+      154
+    ],
+    "usage": "危险/取消按钮皮肤。用于放弃、删除、清空存档。"
+  },
+  {
+    "id": "bar_health_empty",
+    "category": "ui",
+    "file": "ui/bar_health_empty.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      54,
+      724,
+      331,
+      794
+    ],
+    "output_size": [
+      286,
+      79
+    ],
+    "usage": "生命条空框。玩家和敌人血条底图。"
+  },
+  {
+    "id": "bar_health_full",
+    "category": "ui",
+    "file": "ui/bar_health_full.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      369,
+      725,
+      610,
+      794
+    ],
+    "output_size": [
+      250,
+      78
+    ],
+    "usage": "生命条填充态。红色血量显示。"
+  },
+  {
+    "id": "bar_armor_empty",
+    "category": "ui",
+    "file": "ui/bar_armor_empty.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      56,
+      818,
+      331,
+      895
+    ],
+    "output_size": [
+      284,
+      86
+    ],
+    "usage": "护甲条空框。"
+  },
+  {
+    "id": "bar_armor_full",
+    "category": "ui",
+    "file": "ui/bar_armor_full.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      371,
+      821,
+      610,
+      897
+    ],
+    "output_size": [
+      248,
+      85
+    ],
+    "usage": "护甲条填充态。蓝色护甲显示。"
+  },
+  {
+    "id": "bar_energy_empty",
+    "category": "ui",
+    "file": "ui/bar_energy_empty.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      55,
+      914,
+      331,
+      991
+    ],
+    "output_size": [
+      285,
+      86
+    ],
+    "usage": "能量/重掷条空框。"
+  },
+  {
+    "id": "bar_energy_full",
+    "category": "ui",
+    "file": "ui/bar_energy_full.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      370,
+      915,
+      610,
+      991
+    ],
+    "output_size": [
+      249,
+      85
+    ],
+    "usage": "能量/重掷条填充态。"
+  },
+  {
+    "id": "tab_common",
+    "category": "ui",
+    "file": "ui/tab_common.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      648,
+      709,
+      766,
+      778
+    ],
+    "output_size": [
+      127,
+      78
+    ],
+    "usage": "普通页签/标题头。"
+  },
+  {
+    "id": "tab_dark",
+    "category": "ui",
+    "file": "ui/tab_dark.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      788,
+      709,
+      907,
+      778
+    ],
+    "output_size": [
+      128,
+      79
+    ],
+    "usage": "暗系页签/标题头。"
+  },
+  {
+    "id": "tab_gold",
+    "category": "ui",
+    "file": "ui/tab_gold.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      924,
+      709,
+      1050,
+      778
+    ],
+    "output_size": [
+      135,
+      78
+    ],
+    "usage": "金币/奖励页签。"
+  },
+  {
+    "id": "tab_danger",
+    "category": "ui",
+    "file": "ui/tab_danger.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      1071,
+      708,
+      1191,
+      778
+    ],
+    "output_size": [
+      129,
+      79
+    ],
+    "usage": "危险/Boss 页签。"
+  },
+  {
+    "id": "card_common_frame",
+    "category": "ui",
+    "file": "ui/card_common_frame.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      643,
+      811,
+      770,
+      1007
+    ],
+    "output_size": [
+      136,
+      205
+    ],
+    "usage": "普通奖励卡框。"
+  },
+  {
+    "id": "card_curse_frame",
+    "category": "ui",
+    "file": "ui/card_curse_frame.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      784,
+      812,
+      910,
+      1006
+    ],
+    "output_size": [
+      135,
+      203
+    ],
+    "usage": "诅咒/暗系奖励卡框。"
+  },
+  {
+    "id": "card_gold_frame",
+    "category": "ui",
+    "file": "ui/card_gold_frame.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      925,
+      814,
+      1052,
+      1008
+    ],
+    "output_size": [
+      136,
+      203
+    ],
+    "usage": "金币/稀有奖励卡框。"
+  },
+  {
+    "id": "card_danger_frame",
+    "category": "ui",
+    "file": "ui/card_danger_frame.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      1066,
+      812,
+      1193,
+      1008
+    ],
+    "output_size": [
+      136,
+      205
+    ],
+    "usage": "危险/Boss 奖励卡框。"
+  },
+  {
+    "id": "mini_attack_icon",
+    "category": "ui",
+    "file": "ui/mini_attack_icon.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      34,
+      1054,
+      141,
+      1164
+    ],
+    "output_size": [
+      116,
+      119
+    ],
+    "usage": "攻击小图标。用于攻击槽、伤害预览。"
+  },
+  {
+    "id": "mini_defense_icon",
+    "category": "ui",
+    "file": "ui/mini_defense_icon.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      153,
+      1056,
+      257,
+      1164
+    ],
+    "output_size": [
+      113,
+      117
+    ],
+    "usage": "防御小图标。用于防御槽、护甲预览。"
+  },
+  {
+    "id": "mini_heal_icon",
+    "category": "ui",
+    "file": "ui/mini_heal_icon.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      270,
+      1058,
+      372,
+      1164
+    ],
+    "output_size": [
+      111,
+      115
+    ],
+    "usage": "治疗小图标。用于治疗和水符文。"
+  },
+  {
+    "id": "mini_gold_icon",
+    "category": "ui",
+    "file": "ui/mini_gold_icon.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      385,
+      1058,
+      486,
+      1164
+    ],
+    "output_size": [
+      110,
+      115
+    ],
+    "usage": "金币小图标。用于经济、奖励。"
+  },
+  {
+    "id": "mini_reroll_icon",
+    "category": "ui",
+    "file": "ui/mini_reroll_icon.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      497,
+      1059,
+      597,
+      1164
+    ],
+    "output_size": [
+      109,
+      114
+    ],
+    "usage": "重掷小图标。用于重掷次数。"
+  },
+  {
+    "id": "mini_relic_icon",
+    "category": "ui",
+    "file": "ui/mini_relic_icon.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      609,
+      1059,
+      708,
+      1164
+    ],
+    "output_size": [
+      108,
+      114
+    ],
+    "usage": "遗物小图标。用于遗物列表/奖励。"
+  },
+  {
+    "id": "divider_gold",
+    "category": "ui",
+    "file": "ui/divider_gold.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      723,
+      1057,
+      991,
+      1098
+    ],
+    "output_size": [
+      277,
+      51
+    ],
+    "usage": "金色分割线。用于普通 UI 分区。"
+  },
+  {
+    "id": "divider_dark",
+    "category": "ui",
+    "file": "ui/divider_dark.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      727,
+      1113,
+      988,
+      1178
+    ],
+    "output_size": [
+      270,
+      74
+    ],
+    "usage": "暗色分割线。用于 Boss/诅咒分区。"
+  },
+  {
+    "id": "marker_blue",
+    "category": "ui",
+    "file": "ui/marker_blue.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      1012,
+      1055,
+      1105,
+      1203
+    ],
+    "output_size": [
+      107,
+      155
+    ],
+    "usage": "蓝色指针/高亮标记。用于当前选择、拖拽目标。"
+  },
+  {
+    "id": "marker_gold",
+    "category": "ui",
+    "file": "ui/marker_gold.png",
+    "source_sheet": "ui",
+    "source_bbox_xyxy": [
+      1112,
+      1045,
+      1213,
+      1205
+    ],
+    "output_size": [
+      115,
+      167
+    ],
+    "usage": "金色指针/高亮标记。用于奖励、稀有提示。"
+  }
+]

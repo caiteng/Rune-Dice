@@ -1,8 +1,10 @@
 services:
-  cat-night-watch:
+  rune-dice:
     build: .
-    image: cat-night-watch:latest
-    container_name: cat-night-watch
+    image: rune-dice:latest
+    container_name: rune-dice
     restart: unless-stopped
     ports:
-      - "9999:80"
+      - "9999:9999"
+    volumes:
+      - /opt/rune-dice/data:/data
