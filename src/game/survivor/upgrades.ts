@@ -4,17 +4,17 @@ import type { Stats, Upgrade, WeaponId } from './types';
 export const MAX_WEAPON_LEVEL = 8;
 
 export const WEAPON_NAMES: Record<WeaponId, string> = {
-  laser: '魔杖光弹',
-  claw: '猫爪飞刀',
-  purr: '呼噜领域',
-  yarn: '毛线圣书',
+  laser: '追光铃',
+  claw: '猫爪飞镖',
+  purr: '呼噜结界',
+  yarn: '星环毛线',
 };
 
 const WEAPON_DESCS: Record<WeaponId, string> = {
-  laser: '贴近魔杖：自动攻击最近敌人，提升伤害和频率。',
-  claw: '贴近飞刀：朝移动方向连射，提升数量、伤害和穿透。',
-  purr: '贴近大蒜：身边持续伤害，提升范围和伤害。',
-  yarn: '贴近圣经：环绕物持续旋转，提升数量和伤害。',
+  laser: '自动锁定最近敌人，提升伤害和攻击频率。',
+  claw: '朝移动方向连射，提升数量、伤害和穿透。',
+  purr: '在身边形成持续伤害区域，提升范围和伤害。',
+  yarn: '毛线球围绕猫猫旋转，提升数量和伤害。',
 };
 
 const PASSIVE_POOL: Upgrade[] = [
