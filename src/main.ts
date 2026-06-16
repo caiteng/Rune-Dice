@@ -1,3 +1,4 @@
 import './style.css';
-import { RuneDiceGame } from './game/RuneDiceGame';
-new RuneDiceGame('app');
+import { SurvivorGame } from './game/SurvivorGame';
+
+new SurvivorGame('app');

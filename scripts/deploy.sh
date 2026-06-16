@@ -58,8 +58,7 @@ log "当前版本: ${PREV_COMMIT:-unknown}"
 
 log "拉取最新代码: origin/$BRANCH"
 git fetch --prune origin "$BRANCH"
-git checkout "$BRANCH"
-git reset --hard "origin/$BRANCH"
+git checkout -B "$BRANCH" "origin/$BRANCH"
 NEW_COMMIT="$(git rev-parse HEAD)"
 log "目标版本: $NEW_COMMIT"
 

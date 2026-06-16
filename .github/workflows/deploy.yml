@@ -34,5 +34,12 @@ jobs:
             echo '[github-actions] Branch: main'
             echo "[github-actions] Deploy dir: ${APP_DIR}"
 
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              echo "[github-actions] App repo missing; cloning ${REPO_URL}"
+              mkdir -p "$(dirname "${APP_DIR}")"
+              rm -rf "${APP_DIR}"
+              git clone --branch "${BRANCH}" "${REPO_URL}" "${APP_DIR}"
+            fi
+
             cd "${APP_DIR}"
             bash ./scripts/deploy.sh
