@@ -1,6 +1,9 @@
 services:
   rune-dice:
-    build: .
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-local}
     image: rune-dice:latest
     container_name: rune-dice
     restart: unless-stopped

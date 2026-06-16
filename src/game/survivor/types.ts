@@ -1,6 +1,8 @@
 export const GAME_WIDTH = 390;
 export const GAME_HEIGHT = 844;
-export const MATCH_TIME_SECONDS = 360;
+export const WORLD_WIDTH = 2400;
+export const WORLD_HEIGHT = 2400;
+export const MATCH_TIME_SECONDS = 600;
 
 export type GameMode = 'start' | 'playing' | 'upgrade' | 'gameover';
 
@@ -23,6 +25,12 @@ export type Gem = {
   x: number;
   y: number;
   value: number;
+  radius: number;
+};
+
+export type Chest = {
+  x: number;
+  y: number;
   radius: number;
 };
 

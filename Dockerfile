@@ -1,6 +1,8 @@
 FROM node:22 AS build
 
 WORKDIR /app
+ARG APP_VERSION=local
+ENV VITE_APP_VERSION=$APP_VERSION
 
 COPY package*.json ./
 RUN npm install

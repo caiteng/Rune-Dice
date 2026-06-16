@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
-import { createUpgradeOptions } from './survivor/upgrades';
+import { createUpgradeOptions, getUpgradeableWeapons, upgradeWeapon, WEAPON_NAMES } from './survivor/upgrades';
 import {
+  type Chest,
   createBaseStats,
   GAME_HEIGHT,
   GAME_WIDTH,
   MATCH_TIME_SECONDS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
   type Enemy,
   type FloatingText,
   type GameMode,
@@ -19,6 +22,7 @@ import { INPUT_TUNING, PICKUP_TUNING, PLAYER_TUNING } from './survivor/tuning';
 const WIDTH = GAME_WIDTH;
 const HEIGHT = GAME_HEIGHT;
 const MATCH_TIME = MATCH_TIME_SECONDS;
+const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
 class SurvivorScene extends Phaser.Scene {
   private mode: GameMode = 'start';
@@ -31,9 +35,11 @@ class SurvivorScene extends Phaser.Scene {
   private clawTimer = 0;
   private yarnAngle = 0;
   private player = { x: WIDTH / 2, y: HEIGHT / 2, radius: 17, hurtCooldown: 0 };
+  private lastMove = new Phaser.Math.Vector2(0, -1);
   private stats: Stats = createBaseStats();
   private enemies: Enemy[] = [];
   private gems: Gem[] = [];
+  private chests: Chest[] = [];
   private projectiles: Projectile[] = [];
   private texts: FloatingText[] = [];
   private upgrades: Upgrade[] = [];
@@ -53,6 +59,7 @@ class SurvivorScene extends Phaser.Scene {
   private graphics!: Phaser.GameObjects.Graphics;
   private titleText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private versionText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
   private buttonText!: Phaser.GameObjects.Text;
   private buttonBg!: Phaser.GameObjects.Rectangle;
@@ -80,6 +87,11 @@ class SurvivorScene extends Phaser.Scene {
       align: 'center',
       wordWrap: { width: 310 },
     }).setOrigin(0.5);
+    this.versionText = this.add.text(WIDTH - 10, HEIGHT - 10, `v${VERSION}`, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '11px',
+      color: '#94a3b8',
+    }).setOrigin(1, 1);
     this.buttonBg = this.add.rectangle(WIDTH / 2, 520, 210, 54, 0xfacc15, 1).setInteractive();
     this.buttonText = this.add.text(WIDTH / 2, 520, '开始守夜', {
       fontFamily: 'Arial, sans-serif',
@@ -132,10 +144,12 @@ class SurvivorScene extends Phaser.Scene {
     this.laserTimer = 0.25;
     this.clawTimer = 0.8;
     this.yarnAngle = 0;
-    this.player = { x: WIDTH / 2, y: HEIGHT / 2, radius: 17, hurtCooldown: 0 };
+    this.player = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, radius: 17, hurtCooldown: 0 };
+    this.lastMove.set(0, -1);
     this.stats = createBaseStats();
     this.enemies = [];
     this.gems = [];
+    this.chests = [];
     this.projectiles = [];
     this.texts = [];
     this.upgrades = [];
@@ -144,6 +158,7 @@ class SurvivorScene extends Phaser.Scene {
     this.clearResultPanel();
     this.titleText.setVisible(false);
     this.hintText.setVisible(false);
+    this.versionText.setVisible(false);
     this.buttonBg.setVisible(false);
     this.buttonText.setVisible(false);
   }
@@ -156,6 +171,7 @@ class SurvivorScene extends Phaser.Scene {
     this.updateProjectiles(delta);
     this.updateEnemies(delta);
     this.updateGems(delta);
+    this.updateChests();
     this.updateTexts(delta);
     this.spawnEnemies(delta);
 
@@ -172,11 +188,12 @@ class SurvivorScene extends Phaser.Scene {
     const input = this.inputVector();
     if (input.lengthSq() > 0) {
       input.normalize();
+      this.lastMove.copy(input);
       this.player.x += input.x * this.stats.speed * delta;
       this.player.y += input.y * this.stats.speed * delta;
     }
-    this.player.x = Phaser.Math.Clamp(this.player.x, 24, WIDTH - 24);
-    this.player.y = Phaser.Math.Clamp(this.player.y, PLAYER_TUNING.topBound, HEIGHT - 24);
+    this.player.x = Phaser.Math.Clamp(this.player.x, PLAYER_TUNING.margin, WORLD_WIDTH - PLAYER_TUNING.margin);
+    this.player.y = Phaser.Math.Clamp(this.player.y, PLAYER_TUNING.margin, WORLD_HEIGHT - PLAYER_TUNING.margin);
   }
 
   private inputVector() {
@@ -203,8 +220,9 @@ class SurvivorScene extends Phaser.Scene {
     }
     if (clawLevel > 0 && this.clawTimer <= 0) {
       const count = Math.min(5, 1 + Math.floor((clawLevel - 1) / 2) + Math.max(0, this.stats.projectiles - 1));
+      const baseAngle = this.lastMove.angle();
       for (let i = 0; i < count; i++) {
-        const angle = -Math.PI / 2 + (i - (count - 1) / 2) * 0.32;
+        const angle = baseAngle + (i - (count - 1) / 2) * 0.32;
         this.projectiles.push({
           x: this.player.x,
           y: this.player.y,
@@ -305,7 +323,10 @@ class SurvivorScene extends Phaser.Scene {
     for (const enemy of dead) {
       this.kills++;
       this.gems.push({ x: enemy.x, y: enemy.y, value: enemy.elite ? 8 : 1, radius: enemy.elite ? 8 : 5 });
-      if (enemy.elite) this.addText(enemy.x, enemy.y - 20, '精英倒下', '#fde68a');
+      if (enemy.elite) {
+        this.chests.push({ x: enemy.x, y: enemy.y, radius: 15 });
+        this.addText(enemy.x, enemy.y - 20, '宝箱掉落', '#fde68a');
+      }
     }
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
   }
@@ -327,6 +348,17 @@ class SurvivorScene extends Phaser.Scene {
       }
     }
     this.gems = this.gems.filter((gem) => gem.value > 0);
+  }
+
+  private updateChests() {
+    for (const chest of this.chests) {
+      const distance = Phaser.Math.Distance.Between(chest.x, chest.y, this.player.x, this.player.y);
+      if (distance <= chest.radius + this.player.radius + 8) {
+        this.openChest(chest);
+        chest.radius = 0;
+      }
+    }
+    this.chests = this.chests.filter((chest) => chest.radius > 0);
   }
 
   private updateTexts(delta: number) {
@@ -353,22 +385,10 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private spawnEnemy(elite: boolean) {
-    const side = Phaser.Math.Between(0, 3);
-    let x = 0;
-    let y = 0;
-    if (side === 0) {
-      x = Phaser.Math.Between(-30, WIDTH + 30);
-      y = -30;
-    } else if (side === 1) {
-      x = WIDTH + 30;
-      y = Phaser.Math.Between(90, HEIGHT + 30);
-    } else if (side === 2) {
-      x = Phaser.Math.Between(-30, WIDTH + 30);
-      y = HEIGHT + 30;
-    } else {
-      x = -30;
-      y = Phaser.Math.Between(90, HEIGHT + 30);
-    }
+    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const radiusFromPlayer = Math.max(WIDTH, HEIGHT) * 0.68;
+    const x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * radiusFromPlayer, 12, WORLD_WIDTH - 12);
+    const y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * radiusFromPlayer, 12, WORLD_HEIGHT - 12);
 
     const minute = this.elapsed / 60;
     const { hp, speed, radius, damage, color } = createEnemySpawnStats(minute, elite);
@@ -386,6 +406,33 @@ class SurvivorScene extends Phaser.Scene {
       hurtFlash: 0,
       yarnCooldown: 0,
     });
+  }
+
+  private openChest(chest: Chest) {
+    const rolls = this.chestRollCount();
+    let applied = 0;
+    for (let i = 0; i < rolls; i++) {
+      const options = getUpgradeableWeapons(this.stats);
+      if (options.length === 0) break;
+      const id = Phaser.Utils.Array.GetRandom(options);
+      if (upgradeWeapon(this.stats, id)) {
+        applied++;
+        this.addText(chest.x, chest.y - 30 - applied * 16, `${WEAPON_NAMES[id]} +1`, '#fef3c7');
+      }
+    }
+    if (applied === 0) {
+      this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 25);
+      this.addText(chest.x, chest.y - 24, '恢复生命', '#bbf7d0');
+      return;
+    }
+    this.addText(chest.x, chest.y - 18, applied >= 5 ? '五连宝箱！' : applied >= 3 ? '三连宝箱！' : '宝箱强化', '#fde68a');
+  }
+
+  private chestRollCount() {
+    const roll = Math.random();
+    if (roll < 0.05) return 5;
+    if (roll < 0.25) return 3;
+    return 1;
   }
 
   private gainExp(value: number) {
@@ -600,11 +647,12 @@ class SurvivorScene extends Phaser.Scene {
   private drawBackground() {
     this.graphics.fillStyle(0x111827, 1).fillRect(0, 0, WIDTH, HEIGHT);
     this.graphics.lineStyle(1, 0xffffff, 0.035);
-    const offset = (this.elapsed * 12) % 44;
-    for (let x = -44 + offset; x < WIDTH + 44; x += 44) {
+    const offsetX = -((this.cameraX() % 44) + 44) % 44;
+    const offsetY = -((this.cameraY() % 44) + 44) % 44;
+    for (let x = offsetX; x < WIDTH + 44; x += 44) {
       this.graphics.lineBetween(x, 0, x, HEIGHT);
     }
-    for (let y = -44 + offset; y < HEIGHT + 44; y += 44) {
+    for (let y = offsetY; y < HEIGHT + 44; y += 44) {
       this.graphics.lineBetween(0, y, WIDTH, y);
     }
   }
@@ -614,36 +662,48 @@ class SurvivorScene extends Phaser.Scene {
     this.graphics.lineStyle(1, 0xfacc15, 0.45).strokeRoundedRect(26, 212, 338, 410, 8);
     this.titleText.setVisible(true);
     this.hintText.setVisible(true);
+    this.versionText.setVisible(true);
     this.buttonBg.setVisible(true);
     this.buttonText.setVisible(true);
   }
 
   private drawWorld() {
     const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5;
-    this.graphics.fillStyle(0x7dd3fc, 0.1).fillCircle(this.player.x, this.player.y, auraRadius);
-    this.graphics.lineStyle(2, 0x7dd3fc, 0.46).strokeCircle(this.player.x, this.player.y, auraRadius);
+    const playerX = this.screenX(this.player.x);
+    const playerY = this.screenY(this.player.y);
+    this.graphics.fillStyle(0x7dd3fc, 0.1).fillCircle(playerX, playerY, auraRadius);
+    this.graphics.lineStyle(2, 0x7dd3fc, 0.46).strokeCircle(playerX, playerY, auraRadius);
     this.drawYarnOrbits();
     for (const gem of this.gems) {
-      this.graphics.fillStyle(gem.value > 1 ? 0xc084fc : 0x67e8f9, 1).fillCircle(gem.x, gem.y, gem.radius);
+      this.graphics.fillStyle(gem.value > 1 ? 0xc084fc : 0x67e8f9, 1).fillCircle(this.screenX(gem.x), this.screenY(gem.y), gem.radius);
+    }
+    for (const chest of this.chests) {
+      const x = this.screenX(chest.x);
+      const y = this.screenY(chest.y);
+      this.graphics.fillStyle(0x7c2d12, 1).fillRoundedRect(x - 14, y - 10, 28, 20, 3);
+      this.graphics.fillStyle(0xfacc15, 1).fillRect(x - 3, y - 10, 6, 20);
+      this.graphics.lineStyle(2, 0xfde68a, 0.95).strokeRoundedRect(x - 14, y - 10, 28, 20, 3);
     }
     for (const projectile of this.projectiles) {
-      this.graphics.fillStyle(projectile.color, 1).fillCircle(projectile.x, projectile.y, projectile.radius);
+      this.graphics.fillStyle(projectile.color, 1).fillCircle(this.screenX(projectile.x), this.screenY(projectile.y), projectile.radius);
     }
     for (const enemy of this.enemies) {
-      this.graphics.fillStyle(enemy.hurtFlash > 0 ? 0xffffff : enemy.color, 1).fillCircle(enemy.x, enemy.y, enemy.radius);
-      this.graphics.fillStyle(0x000000, 0.38).fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 8, enemy.radius * 2, 3);
-      this.graphics.fillStyle(0xfb7185, 1).fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 8, enemy.radius * 2 * Phaser.Math.Clamp(enemy.hp / enemy.maxHp, 0, 1), 3);
-      if (enemy.elite) this.graphics.lineStyle(2, 0xfacc15, 0.95).strokeCircle(enemy.x, enemy.y, enemy.radius + 5);
+      const x = this.screenX(enemy.x);
+      const y = this.screenY(enemy.y);
+      this.graphics.fillStyle(enemy.hurtFlash > 0 ? 0xffffff : enemy.color, 1).fillCircle(x, y, enemy.radius);
+      this.graphics.fillStyle(0x000000, 0.38).fillRect(x - enemy.radius, y - enemy.radius - 8, enemy.radius * 2, 3);
+      this.graphics.fillStyle(0xfb7185, 1).fillRect(x - enemy.radius, y - enemy.radius - 8, enemy.radius * 2 * Phaser.Math.Clamp(enemy.hp / enemy.maxHp, 0, 1), 3);
+      if (enemy.elite) this.graphics.lineStyle(2, 0xfacc15, 0.95).strokeCircle(x, y, enemy.radius + 5);
     }
-    this.graphics.fillStyle(this.player.hurtCooldown > 0 ? 0xffffff : 0xf5d0a9, 1).fillCircle(this.player.x, this.player.y, this.player.radius);
-    this.graphics.fillStyle(0x0f172a, 1).fillCircle(this.player.x - 6, this.player.y - 4, 2.2);
-    this.graphics.fillCircle(this.player.x + 6, this.player.y - 4, 2.2);
+    this.graphics.fillStyle(this.player.hurtCooldown > 0 ? 0xffffff : 0xf5d0a9, 1).fillCircle(playerX, playerY, this.player.radius);
+    this.graphics.fillStyle(0x0f172a, 1).fillCircle(playerX - 6, playerY - 4, 2.2);
+    this.graphics.fillCircle(playerX + 6, playerY - 4, 2.2);
     this.graphics.fillStyle(0xf5d0a9, 1);
-    this.graphics.fillTriangle(this.player.x - 13, this.player.y - 12, this.player.x - 8, this.player.y - 28, this.player.x, this.player.y - 14);
-    this.graphics.fillTriangle(this.player.x + 13, this.player.y - 12, this.player.x + 8, this.player.y - 28, this.player.x, this.player.y - 14);
+    this.graphics.fillTriangle(playerX - 13, playerY - 12, playerX - 8, playerY - 28, playerX, playerY - 14);
+    this.graphics.fillTriangle(playerX + 13, playerY - 12, playerX + 8, playerY - 28, playerX, playerY - 14);
 
     for (const item of this.texts) {
-      const text = this.add.text(item.x, item.y, item.text, {
+      const text = this.add.text(this.screenX(item.x), this.screenY(item.y), item.text, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '13px',
         color: item.color,
@@ -681,11 +741,29 @@ class SurvivorScene extends Phaser.Scene {
     if (level <= 0) return;
     const count = Math.min(5, 1 + Math.floor((level + 1) / 2));
     const orbit = 62 + level * 9;
-    this.graphics.lineStyle(1, 0xfde68a, 0.24).strokeCircle(this.player.x, this.player.y, orbit);
+    const playerX = this.screenX(this.player.x);
+    const playerY = this.screenY(this.player.y);
+    this.graphics.lineStyle(1, 0xfde68a, 0.24).strokeCircle(playerX, playerY, orbit);
     for (let i = 0; i < count; i++) {
       const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
-      this.graphics.fillStyle(0xfacc15, 1).fillCircle(this.player.x + Math.cos(angle) * orbit, this.player.y + Math.sin(angle) * orbit, 12);
+      this.graphics.fillStyle(0xfacc15, 1).fillCircle(playerX + Math.cos(angle) * orbit, playerY + Math.sin(angle) * orbit, 12);
     }
+  }
+
+  private cameraX() {
+    return this.player.x - WIDTH / 2;
+  }
+
+  private cameraY() {
+    return this.player.y - HEIGHT / 2;
+  }
+
+  private screenX(x: number) {
+    return x - this.cameraX();
+  }
+
+  private screenY(y: number) {
+    return y - this.cameraY();
   }
 
   private timeText(value: number) {

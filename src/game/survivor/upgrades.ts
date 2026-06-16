@@ -1,20 +1,20 @@
 import Phaser from 'phaser';
 import type { Stats, Upgrade, WeaponId } from './types';
 
-const MAX_WEAPON_LEVEL = 6;
+export const MAX_WEAPON_LEVEL = 8;
 
-const WEAPON_NAMES: Record<WeaponId, string> = {
-  laser: '激光笔',
-  claw: '猫爪飞镖',
-  purr: '猫咪呼噜圈',
-  yarn: '毛线球环绕',
+export const WEAPON_NAMES: Record<WeaponId, string> = {
+  laser: '魔杖光弹',
+  claw: '猫爪飞刀',
+  purr: '呼噜领域',
+  yarn: '毛线圣书',
 };
 
 const WEAPON_DESCS: Record<WeaponId, string> = {
-  laser: '提高追踪光点伤害，并缩短冷却。',
-  claw: '提高飞镖伤害，高等级增加数量。',
-  purr: '提高身边持续伤害和范围。',
-  yarn: '毛线球围绕猫猫旋转，碰到敌人造成伤害。',
+  laser: '贴近魔杖：自动攻击最近敌人，提升伤害和频率。',
+  claw: '贴近飞刀：朝移动方向连射，提升数量、伤害和穿透。',
+  purr: '贴近大蒜：身边持续伤害，提升范围和伤害。',
+  yarn: '贴近圣经：环绕物持续旋转，提升数量和伤害。',
 };
 
 const PASSIVE_POOL: Upgrade[] = [
@@ -68,7 +68,17 @@ function weaponUpgrade(id: WeaponId, nextLevel: number): Upgrade {
     title: `${WEAPON_NAMES[id]} Lv.${nextLevel}`,
     desc: WEAPON_DESCS[id],
     apply: (stats) => {
-      stats.weapons[id] = Math.min(MAX_WEAPON_LEVEL, stats.weapons[id] + 1);
+      upgradeWeapon(stats, id);
     },
   };
+}
+
+export function getUpgradeableWeapons(stats: Stats): WeaponId[] {
+  return (Object.keys(stats.weapons) as WeaponId[]).filter((id) => stats.weapons[id] > 0 && stats.weapons[id] < MAX_WEAPON_LEVEL);
+}
+
+export function upgradeWeapon(stats: Stats, id: WeaponId): boolean {
+  if (stats.weapons[id] >= MAX_WEAPON_LEVEL) return false;
+  stats.weapons[id] = Math.min(MAX_WEAPON_LEVEL, stats.weapons[id] + 1);
+  return true;
 }

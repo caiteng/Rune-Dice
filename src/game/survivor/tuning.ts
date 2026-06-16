@@ -5,7 +5,7 @@ export const INPUT_TUNING = {
 };
 
 export const PLAYER_TUNING = {
-  topBound: 116,
+  margin: 48,
 };
 
 export const PICKUP_TUNING = {
