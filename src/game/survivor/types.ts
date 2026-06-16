@@ -34,17 +34,35 @@ export type Chest = {
   radius: number;
 };
 
+export type Obstacle = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  frame: number;
+};
+
 export type Projectile = {
   x: number;
   y: number;
   vx: number;
   vy: number;
+  gravity: number;
   radius: number;
   damage: number;
   life: number;
   color: number;
   pierce: number;
   hit: Set<number>;
+};
+
+export type Zone = {
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;
+  life: number;
+  color: number;
 };
 
 export type FloatingText = {
@@ -55,7 +73,8 @@ export type FloatingText = {
   life: number;
 };
 
-export type WeaponId = 'laser' | 'claw' | 'purr' | 'yarn';
+export type WeaponId = 'laser' | 'claw' | 'purr' | 'yarn' | 'droplet' | 'crescent';
+export type PassiveId = 'catnip' | 'bell' | 'slippers' | 'snack' | 'cushion' | 'spring' | 'lantern' | 'ribbon';
 
 export type Stats = {
   maxHp: number;
@@ -64,12 +83,18 @@ export type Stats = {
   level: number;
   exp: number;
   nextExp: number;
+  fish: number;
   damage: number;
   attackSpeed: number;
   pickup: number;
+  regen: number;
   projectiles: number;
+  projectileSpeed: number;
+  duration: number;
   aura: number;
   weapons: Record<WeaponId, number>;
+  evolved: Record<WeaponId, boolean>;
+  passives: Record<PassiveId, number>;
 };
 
 export type Upgrade = {
@@ -86,16 +111,40 @@ export function createBaseStats(): Stats {
     level: 1,
     exp: 0,
     nextExp: 8,
+    fish: 0,
     damage: 1,
     attackSpeed: 1,
     pickup: 1,
+    regen: 0,
     projectiles: 1,
+    projectileSpeed: 1,
+    duration: 1,
     aura: 1,
     weapons: {
       laser: 1,
-      claw: 1,
-      purr: 1,
+      claw: 0,
+      purr: 0,
       yarn: 0,
+      droplet: 0,
+      crescent: 0,
+    },
+    evolved: {
+      laser: false,
+      claw: false,
+      purr: false,
+      yarn: false,
+      droplet: false,
+      crescent: false,
+    },
+    passives: {
+      catnip: 0,
+      bell: 0,
+      slippers: 0,
+      snack: 0,
+      cushion: 0,
+      spring: 0,
+      lantern: 0,
+      ribbon: 0,
     },
   };
 }

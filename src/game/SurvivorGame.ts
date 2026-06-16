@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { createUpgradeOptions, getUpgradeableWeapons, upgradeWeapon, WEAPON_NAMES } from './survivor/upgrades';
+import { createUpgradeOptions, evolveWeapon, EVOLVED_WEAPON_NAMES, getEvolvableWeapons, getUpgradeableWeapons, upgradeWeapon, WEAPON_NAMES } from './survivor/upgrades';
 import {
   type Chest,
   createBaseStats,
@@ -12,9 +12,11 @@ import {
   type FloatingText,
   type GameMode,
   type Gem,
+  type Obstacle,
   type Projectile,
   type Stats,
   type Upgrade,
+  type Zone,
 } from './survivor/types';
 import { createEnemySpawnStats, spawnCountForMinute, spawnIntervalForMinute } from './survivor/waves';
 import { INPUT_TUNING, PICKUP_TUNING, PLAYER_TUNING } from './survivor/tuning';
@@ -33,6 +35,8 @@ class SurvivorScene extends Phaser.Scene {
   private eliteTimer = 55;
   private laserTimer = 0;
   private clawTimer = 0;
+  private dropletTimer = 0;
+  private crescentTimer = 0;
   private yarnAngle = 0;
   private player = { x: WIDTH / 2, y: HEIGHT / 2, radius: 17, hurtCooldown: 0 };
   private lastMove = new Phaser.Math.Vector2(0, -1);
@@ -40,11 +44,15 @@ class SurvivorScene extends Phaser.Scene {
   private enemies: Enemy[] = [];
   private gems: Gem[] = [];
   private chests: Chest[] = [];
+  private obstacles: Obstacle[] = [];
+  private obstacleSprites: Phaser.GameObjects.Image[] = [];
   private projectiles: Projectile[] = [];
+  private zones: Zone[] = [];
   private texts: FloatingText[] = [];
   private upgrades: Upgrade[] = [];
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys?: Record<string, Phaser.Input.Keyboard.Key>;
+  private floorTile!: Phaser.GameObjects.TileSprite;
   private joystick = {
     active: false,
     pointerId: -1,
@@ -70,10 +78,18 @@ class SurvivorScene extends Phaser.Scene {
     super('Survivor');
   }
 
+  preload() {
+    this.load.image('floor_tileset', '/assets/survivor/map/floor_tileset.png');
+    this.load.spritesheet('obstacles_sheet', '/assets/survivor/map/obstacles_sheet.png', { frameWidth: 64, frameHeight: 64 });
+  }
+
   create() {
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keys = this.input.keyboard?.addKeys('W,A,S,D,SPACE,ENTER') as Record<string, Phaser.Input.Keyboard.Key> | undefined;
+    this.floorTile = this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'floor_tileset').setOrigin(0).setDepth(-10);
     this.graphics = this.add.graphics();
+    this.obstacles = this.createObstacles();
+    this.obstacleSprites = this.obstacles.map((obstacle) => this.add.image(0, 0, 'obstacles_sheet', obstacle.frame).setDepth(2).setVisible(false));
     this.titleText = this.add.text(WIDTH / 2, 260, '猫猫守夜', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '42px',
@@ -143,6 +159,8 @@ class SurvivorScene extends Phaser.Scene {
     this.eliteTimer = 55;
     this.laserTimer = 0.25;
     this.clawTimer = 0.8;
+    this.dropletTimer = 1.2;
+    this.crescentTimer = 1.6;
     this.yarnAngle = 0;
     this.player = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, radius: 17, hurtCooldown: 0 };
     this.lastMove.set(0, -1);
@@ -151,6 +169,7 @@ class SurvivorScene extends Phaser.Scene {
     this.gems = [];
     this.chests = [];
     this.projectiles = [];
+    this.zones = [];
     this.texts = [];
     this.upgrades = [];
     this.joystick.active = false;
@@ -166,9 +185,13 @@ class SurvivorScene extends Phaser.Scene {
   private updatePlaying(delta: number) {
     this.elapsed += delta;
     this.player.hurtCooldown = Math.max(0, this.player.hurtCooldown - delta);
+    if (this.stats.regen > 0 && this.stats.hp < this.stats.maxHp) {
+      this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + this.stats.regen * delta);
+    }
     this.updatePlayer(delta);
     this.updateWeapons(delta);
     this.updateProjectiles(delta);
+    this.updateZones(delta);
     this.updateEnemies(delta);
     this.updateGems(delta);
     this.updateChests();
@@ -189,8 +212,7 @@ class SurvivorScene extends Phaser.Scene {
     if (input.lengthSq() > 0) {
       input.normalize();
       this.lastMove.copy(input);
-      this.player.x += input.x * this.stats.speed * delta;
-      this.player.y += input.y * this.stats.speed * delta;
+      this.moveCircleWithObstacles(this.player, input.x * this.stats.speed * delta, input.y * this.stats.speed * delta);
     }
     this.player.x = Phaser.Math.Clamp(this.player.x, PLAYER_TUNING.margin, WORLD_WIDTH - PLAYER_TUNING.margin);
     this.player.y = Phaser.Math.Clamp(this.player.y, PLAYER_TUNING.margin, WORLD_HEIGHT - PLAYER_TUNING.margin);
@@ -211,44 +233,64 @@ class SurvivorScene extends Phaser.Scene {
     const clawLevel = this.stats.weapons.claw;
     const purrLevel = this.stats.weapons.purr;
     const yarnLevel = this.stats.weapons.yarn;
+    const dropletLevel = this.stats.weapons.droplet;
+    const crescentLevel = this.stats.weapons.crescent;
     this.yarnAngle += delta * (2.7 + yarnLevel * 0.18);
     this.laserTimer -= delta;
     this.clawTimer -= delta;
+    this.dropletTimer -= delta;
+    this.crescentTimer -= delta;
     if (laserLevel > 0 && this.laserTimer <= 0) {
-      this.fireAtNearest((22 + laserLevel * 7) * this.stats.damage, 440, 0x7dd3fc, laserLevel >= 4 ? 2 : 1);
-      this.laserTimer = Math.max(0.14, (0.74 - laserLevel * 0.06) * attackScale);
+      const evolved = this.stats.evolved.laser;
+      const shots = evolved ? 2 : 1;
+      for (let i = 0; i < shots; i++) {
+        this.fireAtNearest(
+          (22 + laserLevel * 7) * this.stats.damage * (evolved ? 1.35 : 1),
+          (440 + i * 40) * this.stats.projectileSpeed,
+          evolved ? 0xa5f3fc : 0x7dd3fc,
+          evolved ? 4 : laserLevel >= 4 ? 2 : 1,
+        );
+      }
+      this.laserTimer = Math.max(evolved ? 0.08 : 0.1, (0.74 - laserLevel * 0.06) * attackScale * (evolved ? 0.46 : 1));
     }
     if (clawLevel > 0 && this.clawTimer <= 0) {
-      const count = Math.min(5, 1 + Math.floor((clawLevel - 1) / 2) + Math.max(0, this.stats.projectiles - 1));
+      const evolved = this.stats.evolved.claw;
+      const count = Math.min(evolved ? 6 : 5, 1 + Math.floor((clawLevel - 1) / 2) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
       const baseAngle = this.lastMove.angle();
       for (let i = 0; i < count; i++) {
-        const angle = baseAngle + (i - (count - 1) / 2) * 0.32;
+        const angle = baseAngle + (i - (count - 1) / 2) * (evolved ? 0.06 : 0.32);
         this.projectiles.push({
           x: this.player.x,
           y: this.player.y,
-          vx: Math.cos(angle) * 330,
-          vy: Math.sin(angle) * 330,
+          vx: Math.cos(angle) * (evolved ? 520 : 330) * this.stats.projectileSpeed,
+          vy: Math.sin(angle) * (evolved ? 520 : 330) * this.stats.projectileSpeed,
+          gravity: 0,
           radius: 7,
-          damage: (13 + clawLevel * 5) * this.stats.damage,
-          life: 1,
-          color: 0xffa366,
-          pierce: clawLevel >= 4 ? 2 : 1,
+          damage: (13 + clawLevel * 5) * this.stats.damage * (evolved ? 1.12 : 1),
+          life: evolved ? 1.2 : 1,
+          color: evolved ? 0xfde68a : 0xffa366,
+          pierce: evolved ? 8 : clawLevel >= 4 ? 2 : 1,
           hit: new Set(),
         });
       }
-      this.clawTimer = Math.max(0.24, (1.1 - clawLevel * 0.05) * attackScale);
+      this.clawTimer = evolved ? Math.max(0.08, 0.16 * attackScale) : Math.max(0.24, (1.1 - clawLevel * 0.05) * attackScale);
     }
-    const auraRadius = 42 + purrLevel * 17 + this.stats.aura * 5;
-    const auraDamage = (6 + purrLevel * 4 + this.stats.aura) * this.stats.damage * delta;
-    for (const enemy of this.enemies) {
-      if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius) {
-        this.hurtEnemy(enemy, auraDamage, '#bae6fd');
+    if (purrLevel > 0) {
+      const purrEvolved = this.stats.evolved.purr;
+      const auraRadius = 42 + purrLevel * 17 + this.stats.aura * 5 + (purrEvolved ? 32 : 0);
+      const auraDamage = (6 + purrLevel * 4 + this.stats.aura) * this.stats.damage * delta * (purrEvolved ? 1.65 : 1);
+      for (const enemy of this.enemies) {
+        if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius) {
+          this.hurtEnemy(enemy, auraDamage, '#bae6fd');
+        }
       }
     }
     if (yarnLevel > 0) {
-      const count = Math.min(5, 1 + Math.floor((yarnLevel + 1) / 2));
-      const orbit = 62 + yarnLevel * 9;
-      const damage = (10 + yarnLevel * 4) * this.stats.damage;
+      const evolved = this.stats.evolved.yarn;
+      const count = Math.min(evolved ? 7 : 5, 1 + Math.floor((yarnLevel + 1) / 2) + (evolved ? 2 : 0));
+      const orbit = 62 + yarnLevel * 9 + (evolved ? 24 : 0);
+      const damage = (10 + yarnLevel * 4) * this.stats.damage * (evolved ? 1.45 : 1);
+      const hitCooldown = (evolved ? 0.2 : 0.32) / this.stats.duration;
       for (let i = 0; i < count; i++) {
         const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
         const x = this.player.x + Math.cos(angle) * orbit;
@@ -257,10 +299,27 @@ class SurvivorScene extends Phaser.Scene {
           if (enemy.yarnCooldown > this.elapsed) continue;
           if (Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y) <= 14 + enemy.radius) {
             this.hurtEnemy(enemy, damage, '#fde68a');
-            enemy.yarnCooldown = this.elapsed + 0.28;
+            enemy.yarnCooldown = this.elapsed + hitCooldown;
           }
         }
       }
+    }
+    if (dropletLevel > 0 && this.dropletTimer <= 0) {
+      const evolved = this.stats.evolved.droplet;
+      const drops = Math.min(evolved ? 4 : 3, 1 + Math.floor((dropletLevel - 1) / 3) + (evolved ? 2 : 0));
+      for (let i = 0; i < drops; i++) {
+        this.spawnDropletZone(dropletLevel, evolved);
+      }
+      this.dropletTimer = Math.max(0.55, (2.05 - dropletLevel * 0.1) * attackScale * (evolved ? 0.7 : 1));
+    }
+    if (crescentLevel > 0 && this.crescentTimer <= 0) {
+      const evolved = this.stats.evolved.crescent;
+      if (evolved) {
+        this.fireCrescentSpiral(crescentLevel);
+      } else {
+        this.fireCrescentArc(crescentLevel);
+      }
+      this.crescentTimer = Math.max(evolved ? 1.15 : 1.35, (2.45 - crescentLevel * 0.11) * attackScale * (evolved ? 0.82 : 1));
     }
   }
 
@@ -273,6 +332,7 @@ class SurvivorScene extends Phaser.Scene {
       y: this.player.y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
+      gravity: 0,
       radius: 5,
       damage,
       life: 1.2,
@@ -282,8 +342,79 @@ class SurvivorScene extends Phaser.Scene {
     });
   }
 
+  private spawnDropletZone(level: number, evolved: boolean) {
+    const target = this.nearestEnemy();
+    const spread = evolved ? 110 : 150;
+    const x = target ? target.x + Phaser.Math.Between(-spread, spread) : this.player.x + Phaser.Math.Between(-180, 180);
+    const y = target ? target.y + Phaser.Math.Between(-spread, spread) : this.player.y + Phaser.Math.Between(-180, 180);
+    this.zones.push({
+      x: Phaser.Math.Clamp(x, 24, WORLD_WIDTH - 24),
+      y: Phaser.Math.Clamp(y, 24, WORLD_HEIGHT - 24),
+      radius: (34 + level * 5 + this.stats.aura * 4) * (evolved ? 1.3 : 1),
+      damage: (5 + level * 2.3) * this.stats.damage * (evolved ? 1.42 : 1),
+      life: (2.2 + level * 0.13) * this.stats.duration * (evolved ? 1.55 : 1),
+      color: evolved ? 0x67e8f9 : 0x38bdf8,
+    });
+  }
+
+  private fireCrescentArc(level: number) {
+    const count = Math.min(4, 1 + Math.floor((level - 1) / 2));
+    const baseSpeed = 250 * this.stats.projectileSpeed;
+    for (let i = 0; i < count; i++) {
+      const offset = (i - (count - 1) / 2) * 0.26;
+      this.projectiles.push({
+        x: this.player.x,
+        y: this.player.y - 8,
+        vx: Math.sin(offset) * baseSpeed,
+        vy: -baseSpeed * (1.18 - Math.abs(offset) * 0.25),
+        gravity: 430,
+        radius: 10 + this.stats.aura * 1.4,
+        damage: (18 + level * 6) * this.stats.damage,
+        life: (1.8 + level * 0.08) * this.stats.duration,
+        color: 0xc4b5fd,
+        pierce: level >= 5 ? 2 : 1,
+        hit: new Set(),
+      });
+    }
+  }
+
+  private fireCrescentSpiral(level: number) {
+    const count = 10;
+    const speed = 285 * this.stats.projectileSpeed;
+    const phase = this.elapsed * 1.8;
+    for (let i = 0; i < count; i++) {
+      const angle = phase + (Math.PI * 2 * i) / count;
+      this.projectiles.push({
+        x: this.player.x,
+        y: this.player.y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        gravity: 0,
+        radius: 11 + this.stats.aura * 1.8,
+        damage: (18 + level * 6) * this.stats.damage * 1.35,
+        life: 1.8 * this.stats.duration,
+        color: 0xf0abfc,
+        pierce: 4,
+        hit: new Set(),
+      });
+    }
+  }
+
+  private updateZones(delta: number) {
+    for (const zone of this.zones) {
+      zone.life -= delta;
+      for (const enemy of this.enemies) {
+        if (Phaser.Math.Distance.Between(zone.x, zone.y, enemy.x, enemy.y) <= zone.radius + enemy.radius) {
+          this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe');
+        }
+      }
+    }
+    this.zones = this.zones.filter((zone) => zone.life > 0);
+  }
+
   private updateProjectiles(delta: number) {
     for (const projectile of this.projectiles) {
+      projectile.vy += projectile.gravity * delta;
       projectile.x += projectile.vx * delta;
       projectile.y += projectile.vy * delta;
       projectile.life -= delta;
@@ -309,8 +440,7 @@ class SurvivorScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       enemy.hurtFlash = Math.max(0, enemy.hurtFlash - delta);
       const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-      enemy.x += Math.cos(angle) * enemy.speed * delta;
-      enemy.y += Math.sin(angle) * enemy.speed * delta;
+      this.moveCircleWithObstacles(enemy, Math.cos(angle) * enemy.speed * delta, Math.sin(angle) * enemy.speed * delta);
       const distance = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
       if (distance <= enemy.radius + this.player.radius && this.player.hurtCooldown <= 0) {
         this.stats.hp -= enemy.damage;
@@ -322,13 +452,34 @@ class SurvivorScene extends Phaser.Scene {
     const dead = this.enemies.filter((enemy) => enemy.hp <= 0);
     for (const enemy of dead) {
       this.kills++;
-      this.gems.push({ x: enemy.x, y: enemy.y, value: enemy.elite ? 8 : 1, radius: enemy.elite ? 8 : 5 });
+      this.gems.push(this.createExpGem(enemy));
+      if (this.stats.evolved.purr && this.isEnemyInPurrAura(enemy)) {
+        this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 1);
+        if (Math.random() < 0.35) this.addText(this.player.x, this.player.y - 46, '+1', '#bbf7d0');
+      }
       if (enemy.elite) {
         this.chests.push({ x: enemy.x, y: enemy.y, radius: 15 });
         this.addText(enemy.x, enemy.y - 20, '宝箱掉落', '#fde68a');
       }
     }
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
+  }
+
+  private createExpGem(enemy: Enemy): Gem {
+    if (enemy.elite) {
+      return { x: enemy.x, y: enemy.y, value: this.elapsed >= 360 ? 15 : 8, radius: 8 };
+    }
+
+    const minute = this.elapsed / 60;
+    const roll = Math.random();
+    if (minute >= 7 && roll < 0.1) return { x: enemy.x, y: enemy.y, value: 5, radius: 7 };
+    if (minute >= 3 && roll < 0.26) return { x: enemy.x, y: enemy.y, value: 2, radius: 6 };
+    return { x: enemy.x, y: enemy.y, value: 1, radius: 5 };
+  }
+
+  private isEnemyInPurrAura(enemy: Enemy) {
+    const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5 + (this.stats.evolved.purr ? 32 : 0);
+    return Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius;
   }
 
   private updateGems(delta: number) {
@@ -408,8 +559,84 @@ class SurvivorScene extends Phaser.Scene {
     });
   }
 
+  private createObstacles(): Obstacle[] {
+    const placements: Array<[number, number, number, number, number]> = [
+      [1060, 1010, 52, 34, 0],
+      [1320, 980, 50, 42, 1],
+      [1180, 1360, 58, 46, 2],
+      [920, 1210, 54, 48, 3],
+      [1460, 1240, 48, 42, 4],
+      [1600, 1040, 42, 56, 5],
+      [780, 980, 58, 38, 6],
+      [700, 1420, 58, 42, 7],
+      [1720, 1420, 60, 38, 8],
+      [1830, 1120, 44, 34, 9],
+      [1120, 1680, 46, 36, 10],
+      [1400, 1660, 42, 42, 11],
+      [560, 1180, 46, 34, 12],
+      [1900, 1540, 54, 42, 13],
+      [960, 760, 52, 46, 14],
+      [1540, 760, 62, 48, 15],
+    ];
+    return placements.map(([x, y, width, height, frame]) => ({ x, y, width, height, frame }));
+  }
+
+  private moveCircleWithObstacles(body: { x: number; y: number; radius: number }, dx: number, dy: number) {
+    body.x += dx;
+    for (const obstacle of this.obstacles) {
+      this.resolveCircleRect(body, obstacle);
+    }
+    body.y += dy;
+    for (const obstacle of this.obstacles) {
+      this.resolveCircleRect(body, obstacle);
+    }
+  }
+
+  private resolveCircleRect(body: { x: number; y: number; radius: number }, obstacle: Obstacle) {
+    const left = obstacle.x - obstacle.width / 2;
+    const right = obstacle.x + obstacle.width / 2;
+    const top = obstacle.y - obstacle.height / 2;
+    const bottom = obstacle.y + obstacle.height / 2;
+    const nearestX = Phaser.Math.Clamp(body.x, left, right);
+    const nearestY = Phaser.Math.Clamp(body.y, top, bottom);
+    const diffX = body.x - nearestX;
+    const diffY = body.y - nearestY;
+    const distanceSq = diffX * diffX + diffY * diffY;
+    const minDistance = body.radius;
+    if (distanceSq >= minDistance * minDistance) return;
+
+    if (distanceSq > 0.0001) {
+      const distance = Math.sqrt(distanceSq);
+      const push = minDistance - distance;
+      body.x += (diffX / distance) * push;
+      body.y += (diffY / distance) * push;
+      return;
+    }
+
+    const distances = [
+      { axis: 'x', value: left - body.x - minDistance },
+      { axis: 'x', value: right - body.x + minDistance },
+      { axis: 'y', value: top - body.y - minDistance },
+      { axis: 'y', value: bottom - body.y + minDistance },
+    ];
+    distances.sort((a, b) => Math.abs(a.value) - Math.abs(b.value));
+    const best = distances[0];
+    if (best.axis === 'x') body.x += best.value;
+    else body.y += best.value;
+  }
+
   private openChest(chest: Chest) {
+    const evolvable = getEvolvableWeapons(this.stats);
+    if (evolvable.length > 0) {
+      const id = Phaser.Utils.Array.GetRandom(evolvable);
+      evolveWeapon(this.stats, id);
+      this.addText(chest.x, chest.y - 22, `${EVOLVED_WEAPON_NAMES[id]}！`, '#fef08a');
+      return;
+    }
+
     const rolls = this.chestRollCount();
+    if (this.tryChestUtilityReward(chest, rolls)) return;
+
     let applied = 0;
     for (let i = 0; i < rolls; i++) {
       const options = getUpgradeableWeapons(this.stats);
@@ -421,11 +648,35 @@ class SurvivorScene extends Phaser.Scene {
       }
     }
     if (applied === 0) {
-      this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 25);
-      this.addText(chest.x, chest.y - 24, '恢复生命', '#bbf7d0');
+      this.gainFish(chest, 20 + rolls * 10);
       return;
     }
     this.addText(chest.x, chest.y - 18, applied >= 5 ? '五连宝箱！' : applied >= 3 ? '三连宝箱！' : '宝箱强化', '#fde68a');
+  }
+
+  private tryChestUtilityReward(chest: Chest, rolls: number) {
+    const hasUpgradeableWeapon = getUpgradeableWeapons(this.stats).length > 0;
+    const hpRatio = this.stats.hp / this.stats.maxHp;
+    const roll = Math.random();
+
+    if (hpRatio < 0.65 && roll < 0.35) {
+      const amount = rolls >= 5 ? 60 : rolls >= 3 ? 45 : 30;
+      this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + amount);
+      this.addText(chest.x, chest.y - 24, `恢复 ${amount}`, '#bbf7d0');
+      return true;
+    }
+
+    if (!hasUpgradeableWeapon || roll > 0.72) {
+      this.gainFish(chest, rolls >= 5 ? 90 : rolls >= 3 ? 55 : 25);
+      return true;
+    }
+
+    return false;
+  }
+
+  private gainFish(chest: Chest, amount: number) {
+    this.stats.fish += amount;
+    this.addText(chest.x, chest.y - 24, `小鱼干 +${amount}`, '#fde68a');
   }
 
   private chestRollCount() {
@@ -440,9 +691,15 @@ class SurvivorScene extends Phaser.Scene {
     while (this.stats.exp >= this.stats.nextExp) {
       this.stats.exp -= this.stats.nextExp;
       this.stats.level++;
-      this.stats.nextExp = Math.floor(8 + this.stats.level * 5.5);
+      this.stats.nextExp = this.expForLevel(this.stats.level);
       this.startUpgrade();
     }
+  }
+
+  private expForLevel(level: number) {
+    if (level < 20) return Math.floor(6 + level * 4.2);
+    if (level < 40) return Math.floor(34 + level * 5.8);
+    return Math.floor(72 + level * 8.4);
   }
 
   private startUpgrade() {
@@ -558,6 +815,7 @@ class SurvivorScene extends Phaser.Scene {
       ['存活时间', this.timeText(this.elapsed)],
       ['清理怪物', `${this.kills}`],
       ['最终等级', `Lv.${this.stats.level}`],
+      ['小鱼干', `${this.stats.fish}`],
       ['剩余生命', `${Math.max(0, Math.ceil(this.stats.hp))}/${this.stats.maxHp}`],
       ['伤害倍率', `x${this.stats.damage.toFixed(2)}`],
     ];
@@ -645,8 +903,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawBackground() {
-    this.graphics.fillStyle(0x121827, 1).fillRect(0, 0, WIDTH, HEIGHT);
-    this.drawFloorTiles();
+    this.floorTile.setTilePosition(this.cameraX() * 0.72, this.cameraY() * 0.72);
     this.drawMapDecorations();
   }
 
@@ -705,14 +962,17 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawWorld() {
-    const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5;
     const playerX = this.screenX(this.player.x);
     const playerY = this.screenY(this.player.y);
-    this.graphics.fillStyle(0x7dd3fc, 0.1).fillCircle(playerX, playerY, auraRadius);
-    this.graphics.lineStyle(2, 0x7dd3fc, 0.46).strokeCircle(playerX, playerY, auraRadius);
+    if (this.stats.weapons.purr > 0) {
+      const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5 + (this.stats.evolved.purr ? 32 : 0);
+      this.graphics.fillStyle(this.stats.evolved.purr ? 0x111827 : 0x7dd3fc, this.stats.evolved.purr ? 0.26 : 0.1).fillCircle(playerX, playerY, auraRadius);
+      this.graphics.lineStyle(this.stats.evolved.purr ? 3 : 2, this.stats.evolved.purr ? 0x312e81 : 0x7dd3fc, this.stats.evolved.purr ? 0.72 : 0.46).strokeCircle(playerX, playerY, auraRadius);
+    }
     this.drawYarnOrbits();
+    this.updateObstacleSprites();
     for (const gem of this.gems) {
-      this.graphics.fillStyle(gem.value > 1 ? 0xc084fc : 0x67e8f9, 1).fillCircle(this.screenX(gem.x), this.screenY(gem.y), gem.radius);
+      this.graphics.fillStyle(this.gemColor(gem.value), 1).fillCircle(this.screenX(gem.x), this.screenY(gem.y), gem.radius);
     }
     for (const chest of this.chests) {
       const x = this.screenX(chest.x);
@@ -720,6 +980,11 @@ class SurvivorScene extends Phaser.Scene {
       this.graphics.fillStyle(0x7c2d12, 1).fillRoundedRect(x - 14, y - 10, 28, 20, 3);
       this.graphics.fillStyle(0xfacc15, 1).fillRect(x - 3, y - 10, 6, 20);
       this.graphics.lineStyle(2, 0xfde68a, 0.95).strokeRoundedRect(x - 14, y - 10, 28, 20, 3);
+    }
+    for (const zone of this.zones) {
+      const alpha = Phaser.Math.Clamp(zone.life / 2.4, 0.16, 0.48);
+      this.graphics.fillStyle(zone.color, alpha).fillCircle(this.screenX(zone.x), this.screenY(zone.y), zone.radius);
+      this.graphics.lineStyle(2, zone.color, alpha + 0.18).strokeCircle(this.screenX(zone.x), this.screenY(zone.y), zone.radius);
     }
     for (const projectile of this.projectiles) {
       this.graphics.fillStyle(projectile.color, 1).fillCircle(this.screenX(projectile.x), this.screenY(projectile.y), projectile.radius);
@@ -752,7 +1017,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawHud() {
-    this.graphics.fillStyle(0x020617, 0.68).fillRoundedRect(12, 12, WIDTH - 24, 108, 6);
+    this.graphics.fillStyle(0x020617, 0.68).fillRoundedRect(12, 12, WIDTH - 24, 124, 6);
     this.graphics.fillStyle(0x3f1d2a, 1).fillRect(24, 30, 150, 9);
     this.graphics.fillStyle(0xfb7185, 1).fillRect(24, 30, 150 * Phaser.Math.Clamp(this.stats.hp / this.stats.maxHp, 0, 1), 9);
     this.graphics.fillStyle(0x164e63, 1).fillRect(24, 48, 150, 8);
@@ -761,9 +1026,27 @@ class SurvivorScene extends Phaser.Scene {
       `Lv.${this.stats.level}   击败 ${this.kills}`,
       `生命 ${Math.ceil(this.stats.hp)}/${this.stats.maxHp}`,
       `时间 ${this.timeText(MATCH_TIME - this.elapsed)}`,
-      `武器 光${this.stats.weapons.laser} 爪${this.stats.weapons.claw} 呼${this.stats.weapons.purr} 线${this.stats.weapons.yarn}`,
+      `武器 光${this.weaponLabel('laser')} 爪${this.weaponLabel('claw')} 呼${this.weaponLabel('purr')} 线${this.weaponLabel('yarn')}`,
+      `     露${this.weaponLabel('droplet')} 月${this.weaponLabel('crescent')}`,
       `伤害 x${this.stats.damage.toFixed(2)}  攻速 x${this.stats.attackSpeed.toFixed(2)}`,
     ].join('\n'));
+  }
+
+  private updateObstacleSprites() {
+    this.obstacles.forEach((obstacle, index) => {
+      const sprite = this.obstacleSprites[index];
+      const x = this.screenX(obstacle.x);
+      const y = this.screenY(obstacle.y);
+      const visible = x > -70 && x < WIDTH + 70 && y > -70 && y < HEIGHT + 70;
+      sprite.setPosition(x, y).setVisible(visible);
+    });
+  }
+
+  private gemColor(value: number) {
+    if (value >= 10) return 0xf87171;
+    if (value >= 5) return 0xc084fc;
+    if (value >= 2) return 0x22c55e;
+    return 0x67e8f9;
   }
 
   private drawJoystick() {
@@ -776,15 +1059,20 @@ class SurvivorScene extends Phaser.Scene {
   private drawYarnOrbits() {
     const level = this.stats.weapons.yarn;
     if (level <= 0) return;
-    const count = Math.min(5, 1 + Math.floor((level + 1) / 2));
-    const orbit = 62 + level * 9;
+    const evolved = this.stats.evolved.yarn;
+    const count = Math.min(evolved ? 7 : 5, 1 + Math.floor((level + 1) / 2) + (evolved ? 2 : 0));
+    const orbit = 62 + level * 9 + (evolved ? 24 : 0);
     const playerX = this.screenX(this.player.x);
     const playerY = this.screenY(this.player.y);
     this.graphics.lineStyle(1, 0xfde68a, 0.24).strokeCircle(playerX, playerY, orbit);
     for (let i = 0; i < count; i++) {
       const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
-      this.graphics.fillStyle(0xfacc15, 1).fillCircle(playerX + Math.cos(angle) * orbit, playerY + Math.sin(angle) * orbit, 12);
+      this.graphics.fillStyle(evolved ? 0xfef08a : 0xfacc15, 1).fillCircle(playerX + Math.cos(angle) * orbit, playerY + Math.sin(angle) * orbit, evolved ? 14 : 12);
     }
+  }
+
+  private weaponLabel(id: 'laser' | 'claw' | 'purr' | 'yarn' | 'droplet' | 'crescent') {
+    return `${this.stats.weapons[id]}${this.stats.evolved[id] ? '★' : ''}`;
   }
 
   private cameraX() {
