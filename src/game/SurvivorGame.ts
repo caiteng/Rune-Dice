@@ -645,16 +645,53 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawBackground() {
-    this.graphics.fillStyle(0x111827, 1).fillRect(0, 0, WIDTH, HEIGHT);
-    this.graphics.lineStyle(1, 0xffffff, 0.035);
-    const offsetX = -((this.cameraX() % 44) + 44) % 44;
-    const offsetY = -((this.cameraY() % 44) + 44) % 44;
-    for (let x = offsetX; x < WIDTH + 44; x += 44) {
-      this.graphics.lineBetween(x, 0, x, HEIGHT);
+    this.graphics.fillStyle(0x121827, 1).fillRect(0, 0, WIDTH, HEIGHT);
+    this.drawFloorTiles();
+    this.drawMapDecorations();
+  }
+
+  private drawFloorTiles() {
+    const tile = 64;
+    const startWorldX = Math.floor(this.cameraX() / tile) * tile;
+    const startWorldY = Math.floor(this.cameraY() / tile) * tile;
+    for (let worldY = startWorldY; worldY < this.cameraY() + HEIGHT + tile; worldY += tile) {
+      for (let worldX = startWorldX; worldX < this.cameraX() + WIDTH + tile; worldX += tile) {
+        const screenX = this.screenX(worldX);
+        const screenY = this.screenY(worldY);
+        const checker = (Math.floor(worldX / tile) + Math.floor(worldY / tile)) % 2 === 0;
+        this.graphics.fillStyle(checker ? 0x1a2335 : 0x161f30, 1).fillRect(screenX, screenY, tile, tile);
+        this.graphics.lineStyle(1, 0x334155, 0.32).strokeRect(screenX, screenY, tile, tile);
+      }
     }
-    for (let y = offsetY; y < HEIGHT + 44; y += 44) {
-      this.graphics.lineBetween(0, y, WIDTH, y);
+  }
+
+  private drawMapDecorations() {
+    const block = 256;
+    const startWorldX = Math.floor(this.cameraX() / block) * block;
+    const startWorldY = Math.floor(this.cameraY() / block) * block;
+    for (let worldY = startWorldY; worldY < this.cameraY() + HEIGHT + block; worldY += block) {
+      for (let worldX = startWorldX; worldX < this.cameraX() + WIDTH + block; worldX += block) {
+        const roll = this.cellHash(worldX, worldY);
+        const x = this.screenX(worldX + 86 + (roll % 48));
+        const y = this.screenY(worldY + 74 + ((roll >> 3) % 70));
+        if (roll % 5 === 0) {
+          this.graphics.fillStyle(0x3b2f55, 0.38).fillRoundedRect(x - 38, y - 18, 76, 36, 8);
+          this.graphics.lineStyle(2, 0x6d5cae, 0.26).strokeRoundedRect(x - 38, y - 18, 76, 36, 8);
+        } else if (roll % 5 === 1) {
+          this.graphics.fillStyle(0x2c3f32, 0.48).fillRect(x - 30, y - 24, 60, 48);
+          this.graphics.lineStyle(2, 0x5f7a61, 0.26).strokeRect(x - 30, y - 24, 60, 48);
+        } else if (roll % 7 === 0) {
+          this.graphics.fillStyle(0x0f172a, 0.48).fillCircle(x, y, 26);
+          this.graphics.lineStyle(2, 0x475569, 0.28).strokeCircle(x, y, 26);
+        }
+      }
     }
+  }
+
+  private cellHash(x: number, y: number) {
+    let value = Math.imul(Math.floor(x), 374761393) ^ Math.imul(Math.floor(y), 668265263);
+    value = Math.imul(value ^ (value >>> 13), 1274126177);
+    return (value ^ (value >>> 16)) >>> 0;
   }
 
   private drawStartScene() {

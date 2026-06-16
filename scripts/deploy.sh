@@ -61,7 +61,11 @@ git fetch --prune origin "$BRANCH"
 git checkout -B "$BRANCH" "origin/$BRANCH"
 NEW_COMMIT="$(git rev-parse HEAD)"
 log "目标版本: $NEW_COMMIT"
-export APP_VERSION="$(git rev-parse --short HEAD)"
+month="$(date +%-m)"
+day="$(date +%-d)"
+time_hm="$(date +%H%M)"
+export APP_VERSION="v${month}.${day}-${time_hm}"
+log "构建版本: $APP_VERSION"
 
 log "开始构建并启动容器"
 prune_dangling_images

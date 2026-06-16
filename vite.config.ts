@@ -1,13 +1,12 @@
 import { defineConfig } from 'vite';
-import { execSync } from 'node:child_process';
-
 function resolveAppVersion() {
   if (process.env.VITE_APP_VERSION) return process.env.VITE_APP_VERSION;
-  try {
-    return execSync('git rev-parse --short HEAD').toString().trim();
-  } catch {
-    return 'local';
-  }
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const hour = String(now.getHours()).padStart(2, '0');
+  const minute = String(now.getMinutes()).padStart(2, '0');
+  return `v${month}.${day}-${hour}${minute}`;
 }
 
 const appVersion = resolveAppVersion();
