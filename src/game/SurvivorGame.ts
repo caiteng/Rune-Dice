@@ -25,6 +25,7 @@ const WIDTH = GAME_WIDTH;
 const HEIGHT = GAME_HEIGHT;
 const MATCH_TIME = MATCH_TIME_SECONDS;
 const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
+const FLOOR_TILE_SCALE = 0.14;
 
 class SurvivorScene extends Phaser.Scene {
   private mode: GameMode = 'start';
@@ -80,16 +81,16 @@ class SurvivorScene extends Phaser.Scene {
 
   preload() {
     this.load.image('floor_tileset', '/assets/survivor/map/floor_tileset.png');
-    this.load.spritesheet('obstacles_sheet', '/assets/survivor/map/obstacles_sheet.png', { frameWidth: 64, frameHeight: 64 });
   }
 
   create() {
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keys = this.input.keyboard?.addKeys('W,A,S,D,SPACE,ENTER') as Record<string, Phaser.Input.Keyboard.Key> | undefined;
     this.floorTile = this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'floor_tileset').setOrigin(0).setDepth(-10);
+    this.floorTile.setTileScale(FLOOR_TILE_SCALE, FLOOR_TILE_SCALE);
     this.graphics = this.add.graphics();
     this.obstacles = this.createObstacles();
-    this.obstacleSprites = this.obstacles.map((obstacle) => this.add.image(0, 0, 'obstacles_sheet', obstacle.frame).setDepth(2).setVisible(false));
+    this.obstacleSprites = [];
     this.titleText = this.add.text(WIDTH / 2, 260, '猫猫守夜', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '42px',
@@ -560,25 +561,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private createObstacles(): Obstacle[] {
-    const placements: Array<[number, number, number, number, number]> = [
-      [1060, 1010, 52, 34, 0],
-      [1320, 980, 50, 42, 1],
-      [1180, 1360, 58, 46, 2],
-      [920, 1210, 54, 48, 3],
-      [1460, 1240, 48, 42, 4],
-      [1600, 1040, 42, 56, 5],
-      [780, 980, 58, 38, 6],
-      [700, 1420, 58, 42, 7],
-      [1720, 1420, 60, 38, 8],
-      [1830, 1120, 44, 34, 9],
-      [1120, 1680, 46, 36, 10],
-      [1400, 1660, 42, 42, 11],
-      [560, 1180, 46, 34, 12],
-      [1900, 1540, 54, 42, 13],
-      [960, 760, 52, 46, 14],
-      [1540, 760, 62, 48, 15],
-    ];
-    return placements.map(([x, y, width, height, frame]) => ({ x, y, width, height, frame }));
+    return [];
   }
 
   private moveCircleWithObstacles(body: { x: number; y: number; radius: number }, dx: number, dy: number) {
@@ -903,52 +886,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawBackground() {
-    this.floorTile.setTilePosition(this.cameraX() * 0.72, this.cameraY() * 0.72);
-    this.drawMapDecorations();
-  }
-
-  private drawFloorTiles() {
-    const tile = 64;
-    const startWorldX = Math.floor(this.cameraX() / tile) * tile;
-    const startWorldY = Math.floor(this.cameraY() / tile) * tile;
-    for (let worldY = startWorldY; worldY < this.cameraY() + HEIGHT + tile; worldY += tile) {
-      for (let worldX = startWorldX; worldX < this.cameraX() + WIDTH + tile; worldX += tile) {
-        const screenX = this.screenX(worldX);
-        const screenY = this.screenY(worldY);
-        const checker = (Math.floor(worldX / tile) + Math.floor(worldY / tile)) % 2 === 0;
-        this.graphics.fillStyle(checker ? 0x1a2335 : 0x161f30, 1).fillRect(screenX, screenY, tile, tile);
-        this.graphics.lineStyle(1, 0x334155, 0.32).strokeRect(screenX, screenY, tile, tile);
-      }
-    }
-  }
-
-  private drawMapDecorations() {
-    const block = 256;
-    const startWorldX = Math.floor(this.cameraX() / block) * block;
-    const startWorldY = Math.floor(this.cameraY() / block) * block;
-    for (let worldY = startWorldY; worldY < this.cameraY() + HEIGHT + block; worldY += block) {
-      for (let worldX = startWorldX; worldX < this.cameraX() + WIDTH + block; worldX += block) {
-        const roll = this.cellHash(worldX, worldY);
-        const x = this.screenX(worldX + 86 + (roll % 48));
-        const y = this.screenY(worldY + 74 + ((roll >> 3) % 70));
-        if (roll % 5 === 0) {
-          this.graphics.fillStyle(0x3b2f55, 0.38).fillRoundedRect(x - 38, y - 18, 76, 36, 8);
-          this.graphics.lineStyle(2, 0x6d5cae, 0.26).strokeRoundedRect(x - 38, y - 18, 76, 36, 8);
-        } else if (roll % 5 === 1) {
-          this.graphics.fillStyle(0x2c3f32, 0.48).fillRect(x - 30, y - 24, 60, 48);
-          this.graphics.lineStyle(2, 0x5f7a61, 0.26).strokeRect(x - 30, y - 24, 60, 48);
-        } else if (roll % 7 === 0) {
-          this.graphics.fillStyle(0x0f172a, 0.48).fillCircle(x, y, 26);
-          this.graphics.lineStyle(2, 0x475569, 0.28).strokeCircle(x, y, 26);
-        }
-      }
-    }
-  }
-
-  private cellHash(x: number, y: number) {
-    let value = Math.imul(Math.floor(x), 374761393) ^ Math.imul(Math.floor(y), 668265263);
-    value = Math.imul(value ^ (value >>> 13), 1274126177);
-    return (value ^ (value >>> 16)) >>> 0;
+    this.floorTile.setTilePosition(this.cameraX() / FLOOR_TILE_SCALE, this.cameraY() / FLOOR_TILE_SCALE);
   }
 
   private drawStartScene() {
@@ -1038,7 +976,8 @@ class SurvivorScene extends Phaser.Scene {
       const x = this.screenX(obstacle.x);
       const y = this.screenY(obstacle.y);
       const visible = x > -70 && x < WIDTH + 70 && y > -70 && y < HEIGHT + 70;
-      sprite.setPosition(x, y).setVisible(visible);
+      const displaySize = Math.max(obstacle.width, obstacle.height) * 1.7;
+      sprite.setPosition(x, y).setDisplaySize(displaySize, displaySize).setVisible(visible);
     });
   }
 
