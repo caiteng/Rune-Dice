@@ -39,7 +39,20 @@ export type Obstacle = {
   y: number;
   width: number;
   height: number;
-  frame: number;
+  kind: 'furniture' | 'box' | 'pillow';
+  destructible: boolean;
+  hp: number;
+  maxHp: number;
+  hurtFlash: number;
+};
+
+export type PickupKind = 'heal' | 'freeze' | 'magnet' | 'fish';
+
+export type Pickup = {
+  x: number;
+  y: number;
+  radius: number;
+  kind: PickupKind;
 };
 
 export type Projectile = {

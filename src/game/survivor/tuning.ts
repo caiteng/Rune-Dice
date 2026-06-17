@@ -1,7 +1,7 @@
 export const INPUT_TUNING = {
-  joystickStartYRatio: 0.46,
-  joystickRadius: 54,
-  joystickDeadzone: 5,
+  joystickStartYRatio: 0.42,
+  joystickRadius: 64,
+  joystickDeadzone: 8,
 };
 
 export const PLAYER_TUNING = {
@@ -9,7 +9,7 @@ export const PLAYER_TUNING = {
 };
 
 export const PICKUP_TUNING = {
-  baseRadius: 46,
-  minMagnetSpeed: 340,
-  maxMagnetSpeed: 620,
+  baseRadius: 56,
+  minMagnetSpeed: 420,
+  maxMagnetSpeed: 760,
 };

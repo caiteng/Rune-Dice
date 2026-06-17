@@ -13,6 +13,8 @@ import {
   type GameMode,
   type Gem,
   type Obstacle,
+  type Pickup,
+  type PickupKind,
   type Projectile,
   type Stats,
   type Upgrade,
@@ -21,8 +23,8 @@ import {
 import { createEnemySpawnStats, spawnCountForMinute, spawnIntervalForMinute } from './survivor/waves';
 import { INPUT_TUNING, PICKUP_TUNING, PLAYER_TUNING } from './survivor/tuning';
 
-const WIDTH = GAME_WIDTH;
-const HEIGHT = GAME_HEIGHT;
+let WIDTH = GAME_WIDTH;
+let HEIGHT = GAME_HEIGHT;
 const MATCH_TIME = MATCH_TIME_SECONDS;
 const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 const FLOOR_TEXTURE_SIZE = 1254;
@@ -48,7 +50,7 @@ class SurvivorScene extends Phaser.Scene {
   private gems: Gem[] = [];
   private chests: Chest[] = [];
   private obstacles: Obstacle[] = [];
-  private obstacleSprites: Phaser.GameObjects.Image[] = [];
+  private pickups: Pickup[] = [];
   private projectiles: Projectile[] = [];
   private zones: Zone[] = [];
   private texts: FloatingText[] = [];
@@ -56,6 +58,7 @@ class SurvivorScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys?: Record<string, Phaser.Input.Keyboard.Key>;
   private floorTile!: Phaser.GameObjects.TileSprite;
+  private freezeTimer = 0;
   private joystick = {
     active: false,
     pointerId: -1,
@@ -86,13 +89,13 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   create() {
+    this.updateViewSize();
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keys = this.input.keyboard?.addKeys('W,A,S,D,SPACE,ENTER') as Record<string, Phaser.Input.Keyboard.Key> | undefined;
     this.floorTile = this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'floor_tileset').setOrigin(0).setDepth(-10);
     this.floorTile.setTileScale(FLOOR_TILE_SCALE, FLOOR_TILE_SCALE);
     this.graphics = this.add.graphics();
     this.obstacles = this.createObstacles();
-    this.obstacleSprites = [];
     this.titleText = this.add.text(WIDTH / 2, 260, '猫猫守夜', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '42px',
@@ -130,6 +133,8 @@ class SurvivorScene extends Phaser.Scene {
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => this.onPointerMove(pointer));
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => this.onPointerUp(pointer));
     this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => this.onPointerUp(pointer));
+    this.scale.on('resize', this.onResize, this);
+    this.layoutHomeUi();
   }
 
   update(_time: number, deltaMs: number) {
@@ -153,6 +158,27 @@ class SurvivorScene extends Phaser.Scene {
     }
   }
 
+  private updateViewSize() {
+    WIDTH = Math.max(320, Math.round(this.scale.width || GAME_WIDTH));
+    HEIGHT = Math.max(568, Math.round(this.scale.height || GAME_HEIGHT));
+  }
+
+  private onResize() {
+    this.updateViewSize();
+    this.floorTile?.setSize(WIDTH, HEIGHT);
+    this.layoutHomeUi();
+    if (this.mode === 'upgrade') this.showUpgradePanel();
+    if (this.mode === 'gameover') this.showResultPanel(this.stats.hp > 0 && this.elapsed >= MATCH_TIME);
+  }
+
+  private layoutHomeUi() {
+    this.titleText?.setPosition(WIDTH / 2, HEIGHT * 0.3);
+    this.hintText?.setPosition(WIDTH / 2, HEIGHT * 0.39);
+    this.versionText?.setPosition(WIDTH - this.uiMargin(), HEIGHT - this.uiMargin());
+    this.buttonBg?.setPosition(WIDTH / 2, HEIGHT * 0.62);
+    this.buttonText?.setPosition(WIDTH / 2, HEIGHT * 0.62);
+  }
+
   private startGame() {
     this.mode = 'playing';
     this.elapsed = 0;
@@ -171,6 +197,8 @@ class SurvivorScene extends Phaser.Scene {
     this.enemies = [];
     this.gems = [];
     this.chests = [];
+    this.obstacles = this.createObstacles();
+    this.pickups = [];
     this.projectiles = [];
     this.zones = [];
     this.texts = [];
@@ -188,6 +216,7 @@ class SurvivorScene extends Phaser.Scene {
   private updatePlaying(delta: number) {
     this.elapsed += delta;
     this.player.hurtCooldown = Math.max(0, this.player.hurtCooldown - delta);
+    this.freezeTimer = Math.max(0, this.freezeTimer - delta);
     if (this.stats.regen > 0 && this.stats.hp < this.stats.maxHp) {
       this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + this.stats.regen * delta);
     }
@@ -195,8 +224,10 @@ class SurvivorScene extends Phaser.Scene {
     this.updateWeapons(delta);
     this.updateProjectiles(delta);
     this.updateZones(delta);
+    this.updateObstacles(delta);
     this.updateEnemies(delta);
     this.updateGems(delta);
+    this.updatePickups();
     this.updateChests();
     this.updateTexts(delta);
     this.spawnEnemies(delta);
@@ -287,6 +318,7 @@ class SurvivorScene extends Phaser.Scene {
           this.hurtEnemy(enemy, auraDamage, '#bae6fd');
         }
       }
+      this.damageBreakableObstaclesInCircle(this.player.x, this.player.y, auraRadius, auraDamage);
     }
     if (yarnLevel > 0) {
       const evolved = this.stats.evolved.yarn;
@@ -305,6 +337,7 @@ class SurvivorScene extends Phaser.Scene {
             enemy.yarnCooldown = this.elapsed + hitCooldown;
           }
         }
+        this.damageBreakableObstaclesInCircle(x, y, 14, damage);
       }
     }
     if (dropletLevel > 0 && this.dropletTimer <= 0) {
@@ -411,6 +444,7 @@ class SurvivorScene extends Phaser.Scene {
           this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe');
         }
       }
+      this.damageBreakableObstaclesInCircle(zone.x, zone.y, zone.radius, zone.damage * delta);
     }
     this.zones = this.zones.filter((zone) => zone.life > 0);
   }
@@ -435,6 +469,21 @@ class SurvivorScene extends Phaser.Scene {
           break;
         }
       }
+      if (projectile.life <= 0) continue;
+      for (const obstacle of this.obstacles) {
+        if (!this.circleHitsObstacle(projectile.x, projectile.y, projectile.radius, obstacle)) continue;
+        if (obstacle.destructible) {
+          this.hurtObstacle(obstacle, projectile.damage);
+          if (projectile.pierce > 0) {
+            projectile.pierce--;
+          } else {
+            projectile.life = 0;
+          }
+        } else {
+          projectile.life = 0;
+        }
+        break;
+      }
     }
     this.projectiles = this.projectiles.filter((projectile) => projectile.life > 0);
   }
@@ -442,8 +491,10 @@ class SurvivorScene extends Phaser.Scene {
   private updateEnemies(delta: number) {
     for (const enemy of this.enemies) {
       enemy.hurtFlash = Math.max(0, enemy.hurtFlash - delta);
-      const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-      this.moveCircleWithObstacles(enemy, Math.cos(angle) * enemy.speed * delta, Math.sin(angle) * enemy.speed * delta);
+      if (this.freezeTimer <= 0) {
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
+        this.moveCircleWithObstacles(enemy, Math.cos(angle) * enemy.speed * delta, Math.sin(angle) * enemy.speed * delta);
+      }
       const distance = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
       if (distance <= enemy.radius + this.player.radius && this.player.hurtCooldown <= 0) {
         this.stats.hp -= enemy.damage;
@@ -480,6 +531,30 @@ class SurvivorScene extends Phaser.Scene {
     return { x: enemy.x, y: enemy.y, value: 1, radius: 5 };
   }
 
+  private updateObstacles(delta: number) {
+    for (const obstacle of this.obstacles) {
+      obstacle.hurtFlash = Math.max(0, obstacle.hurtFlash - delta);
+    }
+
+    const broken = this.obstacles.filter((obstacle) => obstacle.destructible && obstacle.hp <= 0);
+    for (const obstacle of broken) {
+      this.spawnObstacleReward(obstacle);
+      this.addText(obstacle.x, obstacle.y - 24, '打碎', '#fef3c7');
+    }
+    this.obstacles = this.obstacles.filter((obstacle) => !obstacle.destructible || obstacle.hp > 0);
+  }
+
+  private spawnObstacleReward(obstacle: Obstacle) {
+    const roll = Math.random();
+    let kind: PickupKind | null = null;
+    if (roll < 0.15) kind = 'fish';
+    else if (roll < 0.23) kind = 'heal';
+    else if (roll < 0.28) kind = 'magnet';
+    else if (roll < 0.3) kind = 'freeze';
+    if (!kind) return;
+    this.pickups.push({ x: obstacle.x, y: obstacle.y, radius: 11, kind });
+  }
+
   private isEnemyInPurrAura(enemy: Enemy) {
     const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5 + (this.stats.evolved.purr ? 32 : 0);
     return Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius;
@@ -502,6 +577,40 @@ class SurvivorScene extends Phaser.Scene {
       }
     }
     this.gems = this.gems.filter((gem) => gem.value > 0);
+  }
+
+  private updatePickups() {
+    for (const pickup of this.pickups) {
+      if (Phaser.Math.Distance.Between(pickup.x, pickup.y, this.player.x, this.player.y) <= pickup.radius + this.player.radius + 6) {
+        this.applyPickup(pickup);
+        pickup.radius = 0;
+      }
+    }
+    this.pickups = this.pickups.filter((pickup) => pickup.radius > 0);
+  }
+
+  private applyPickup(pickup: Pickup) {
+    if (pickup.kind === 'heal') {
+      const amount = 30;
+      this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + amount);
+      this.addText(this.player.x, this.player.y - 42, `恢复 ${amount}`, '#bbf7d0');
+      return;
+    }
+    if (pickup.kind === 'freeze') {
+      this.freezeTimer = 4;
+      this.addText(this.player.x, this.player.y - 42, '静止', '#bfdbfe');
+      return;
+    }
+    if (pickup.kind === 'magnet') {
+      for (const gem of this.gems) {
+        this.gainExp(gem.value);
+        gem.value = 0;
+      }
+      this.addText(this.player.x, this.player.y - 42, '吸收经验', '#67e8f9');
+      return;
+    }
+    this.stats.fish += 15;
+    this.addText(this.player.x, this.player.y - 42, '小鱼干 +15', '#fde68a');
   }
 
   private updateChests() {
@@ -563,7 +672,29 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private createObstacles(): Obstacle[] {
-    return [];
+    const placements: Array<[number, number, number, number, Obstacle['kind'], boolean]> = [
+      [760, 820, 86, 54, 'furniture', false],
+      [1630, 900, 78, 58, 'furniture', false],
+      [720, 1640, 96, 48, 'furniture', false],
+      [1690, 1580, 72, 64, 'furniture', false],
+      [1020, 630, 58, 48, 'box', true],
+      [1390, 720, 58, 48, 'pillow', true],
+      [620, 1180, 58, 48, 'box', true],
+      [1810, 1210, 58, 48, 'pillow', true],
+      [980, 1800, 58, 48, 'pillow', true],
+      [1450, 1760, 58, 48, 'box', true],
+    ];
+    return placements.map(([x, y, width, height, kind, destructible]) => ({
+      x,
+      y,
+      width,
+      height,
+      kind,
+      destructible,
+      hp: destructible ? 55 : Number.POSITIVE_INFINITY,
+      maxHp: destructible ? 55 : Number.POSITIVE_INFINITY,
+      hurtFlash: 0,
+    }));
   }
 
   private moveCircleWithObstacles(body: { x: number; y: number; radius: number }, dx: number, dy: number) {
@@ -608,6 +739,31 @@ class SurvivorScene extends Phaser.Scene {
     const best = distances[0];
     if (best.axis === 'x') body.x += best.value;
     else body.y += best.value;
+  }
+
+  private damageBreakableObstaclesInCircle(x: number, y: number, radius: number, damage: number) {
+    for (const obstacle of this.obstacles) {
+      if (!obstacle.destructible) continue;
+      if (this.circleHitsObstacle(x, y, radius, obstacle)) {
+        this.hurtObstacle(obstacle, damage);
+      }
+    }
+  }
+
+  private circleHitsObstacle(x: number, y: number, radius: number, obstacle: Obstacle) {
+    const left = obstacle.x - obstacle.width / 2;
+    const right = obstacle.x + obstacle.width / 2;
+    const top = obstacle.y - obstacle.height / 2;
+    const bottom = obstacle.y + obstacle.height / 2;
+    const nearestX = Phaser.Math.Clamp(x, left, right);
+    const nearestY = Phaser.Math.Clamp(y, top, bottom);
+    return Phaser.Math.Distance.Between(x, y, nearestX, nearestY) <= radius;
+  }
+
+  private hurtObstacle(obstacle: Obstacle, amount: number) {
+    if (!obstacle.destructible || obstacle.hp <= 0) return;
+    obstacle.hp -= amount;
+    obstacle.hurtFlash = 0.08;
   }
 
   private openChest(chest: Chest) {
@@ -698,8 +854,13 @@ class SurvivorScene extends Phaser.Scene {
 
   private showUpgradePanel() {
     this.clearUpgradePanel();
-    const bg = this.add.rectangle(WIDTH / 2, HEIGHT / 2, 344, 408, 0x111827, 0.98).setStrokeStyle(2, 0xfacc15, 0.9);
-    const title = this.add.text(WIDTH / 2, 254, '选择强化', {
+    const margin = this.uiMargin();
+    const panelWidth = Math.min(344, WIDTH - margin * 2);
+    const cardWidth = panelWidth - 52;
+    const panelHeight = Math.min(408, HEIGHT - margin * 8);
+    const panelTop = (HEIGHT - panelHeight) / 2;
+    const bg = this.add.rectangle(WIDTH / 2, HEIGHT / 2, panelWidth, panelHeight, 0x111827, 0.98).setStrokeStyle(2, 0xfacc15, 0.9);
+    const title = this.add.text(WIDTH / 2, panelTop + 42, '选择强化', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '26px',
       color: '#fef3c7',
@@ -707,19 +868,20 @@ class SurvivorScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.upgradePanel.push(bg, title);
     this.upgrades.forEach((upgrade, index) => {
-      const y = 330 + index * 92;
-      const card = this.add.rectangle(WIDTH / 2, y, 292, 72, 0x1f2a44, 1).setStrokeStyle(1, 0x93c5fd, 0.55).setInteractive();
-      const name = this.add.text(68, y - 22, upgrade.title, {
+      const y = panelTop + 118 + index * Math.min(92, panelHeight * 0.225);
+      const card = this.add.rectangle(WIDTH / 2, y, cardWidth, 72, 0x1f2a44, 1).setStrokeStyle(1, 0x93c5fd, 0.55).setInteractive();
+      const textX = WIDTH / 2 - cardWidth / 2 + 18;
+      const name = this.add.text(textX, y - 22, upgrade.title, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '17px',
         color: '#ffffff',
         fontStyle: 'bold',
       });
-      const desc = this.add.text(68, y + 5, upgrade.desc, {
+      const desc = this.add.text(textX, y + 5, upgrade.desc, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '13px',
         color: '#cbd5e1',
-        wordWrap: { width: 252 },
+        wordWrap: { width: cardWidth - 40 },
       });
       card.on('pointerdown', () => this.pickUpgrade(index));
       this.upgradePanel.push(card, name, desc);
@@ -776,10 +938,15 @@ class SurvivorScene extends Phaser.Scene {
 
   private showResultPanel(won: boolean) {
     this.clearResultPanel();
-    const panel = this.add.rectangle(WIDTH / 2, 392, 332, 356, 0x0f172a, 0.97)
+    const margin = this.uiMargin();
+    const panelWidth = Math.min(332, WIDTH - margin * 2);
+    const panelHeight = Math.min(356, HEIGHT - margin * 10);
+    const panelY = HEIGHT / 2;
+    const panelTop = panelY - panelHeight / 2;
+    const panel = this.add.rectangle(WIDTH / 2, panelY, panelWidth, panelHeight, 0x0f172a, 0.97)
       .setStrokeStyle(2, won ? 0xfacc15 : 0xfb7185, 0.9)
       .setDepth(20);
-    const eyebrow = this.add.text(WIDTH / 2, 250, won ? '守夜完成' : '仍需再试', {
+    const eyebrow = this.add.text(WIDTH / 2, panelTop + 34, won ? '守夜完成' : '仍需再试', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '14px',
       color: won ? '#fde68a' : '#fecaca',
@@ -787,12 +954,12 @@ class SurvivorScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(21);
     this.titleText
       .setText(won ? '天亮了' : '守夜失败')
-      .setPosition(WIDTH / 2, 296)
+      .setPosition(WIDTH / 2, panelTop + 80)
       .setDepth(21)
       .setVisible(true);
     this.hintText
       .setText(won ? '猫猫守住了夜晚房间。' : '猫猫被梦魇包围了。')
-      .setPosition(WIDTH / 2, 336)
+      .setPosition(WIDTH / 2, panelTop + 120)
       .setDepth(21)
       .setVisible(true);
 
@@ -806,14 +973,15 @@ class SurvivorScene extends Phaser.Scene {
     ];
 
     rows.forEach(([label, value], index) => {
-      const y = 386 + index * 38;
-      const rowBg = this.add.rectangle(WIDTH / 2, y, 268, 30, 0x1f2937, 0.72).setDepth(21);
-      const labelText = this.add.text(78, y, label, {
+      const y = panelTop + 170 + index * 34;
+      const rowWidth = panelWidth - 64;
+      const rowBg = this.add.rectangle(WIDTH / 2, y, rowWidth, 28, 0x1f2937, 0.72).setDepth(21);
+      const labelText = this.add.text(WIDTH / 2 - rowWidth / 2 + 12, y, label, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '14px',
         color: '#cbd5e1',
       }).setOrigin(0, 0.5).setDepth(22);
-      const valueText = this.add.text(312, y, value, {
+      const valueText = this.add.text(WIDTH / 2 + rowWidth / 2 - 12, y, value, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '15px',
         color: '#ffffff',
@@ -822,18 +990,19 @@ class SurvivorScene extends Phaser.Scene {
       this.resultPanel.push(rowBg, labelText, valueText);
     });
 
-    this.buttonBg.setPosition(WIDTH / 2, 594).setDepth(22);
-    this.buttonText.setPosition(WIDTH / 2, 594).setDepth(23);
+    this.buttonBg.setPosition(WIDTH / 2, panelTop + panelHeight - 38).setDepth(22);
+    this.buttonText.setPosition(WIDTH / 2, panelTop + panelHeight - 38).setDepth(23);
     this.resultPanel.push(panel, eyebrow);
   }
 
   private clearResultPanel() {
     for (const item of this.resultPanel) item.destroy();
     this.resultPanel = [];
-    this.titleText?.setPosition(WIDTH / 2, 260).setDepth(0);
-    this.hintText?.setPosition(WIDTH / 2, 330).setDepth(0);
-    this.buttonBg?.setPosition(WIDTH / 2, 520).setDepth(0);
-    this.buttonText?.setPosition(WIDTH / 2, 520).setDepth(0);
+    this.titleText?.setDepth(0);
+    this.hintText?.setDepth(0);
+    this.buttonBg?.setDepth(0);
+    this.buttonText?.setDepth(0);
+    this.layoutHomeUi();
   }
 
   private onPointerDown(pointer: Phaser.Input.Pointer) {
@@ -893,8 +1062,13 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawStartScene() {
-    this.graphics.fillStyle(0x0f172a, 0.92).fillRoundedRect(26, 212, 338, 410, 8);
-    this.graphics.lineStyle(1, 0xfacc15, 0.45).strokeRoundedRect(26, 212, 338, 410, 8);
+    const margin = this.uiMargin();
+    const panelWidth = Math.min(338, WIDTH - margin * 2);
+    const panelHeight = Math.min(410, HEIGHT * 0.5);
+    const panelX = (WIDTH - panelWidth) / 2;
+    const panelY = Math.max(margin * 4, HEIGHT * 0.25);
+    this.graphics.fillStyle(0x0f172a, 0.92).fillRoundedRect(panelX, panelY, panelWidth, panelHeight, 8);
+    this.graphics.lineStyle(1, 0xfacc15, 0.45).strokeRoundedRect(panelX, panelY, panelWidth, panelHeight, 8);
     this.titleText.setVisible(true);
     this.hintText.setVisible(true);
     this.versionText.setVisible(true);
@@ -911,9 +1085,12 @@ class SurvivorScene extends Phaser.Scene {
       this.graphics.lineStyle(this.stats.evolved.purr ? 3 : 2, this.stats.evolved.purr ? 0x312e81 : 0x7dd3fc, this.stats.evolved.purr ? 0.72 : 0.46).strokeCircle(playerX, playerY, auraRadius);
     }
     this.drawYarnOrbits();
-    this.updateObstacleSprites();
+    this.drawObstacles();
     for (const gem of this.gems) {
       this.graphics.fillStyle(this.gemColor(gem.value), 1).fillCircle(this.screenX(gem.x), this.screenY(gem.y), gem.radius);
+    }
+    for (const pickup of this.pickups) {
+      this.drawPickup(pickup);
     }
     for (const chest of this.chests) {
       const x = this.screenX(chest.x);
@@ -958,19 +1135,133 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawHud() {
-    this.graphics.fillStyle(0x020617, 0.68).fillRoundedRect(12, 12, WIDTH - 24, 124, 6);
-    this.graphics.fillStyle(0x3f1d2a, 1).fillRect(24, 30, 150, 9);
-    this.graphics.fillStyle(0xfb7185, 1).fillRect(24, 30, 150 * Phaser.Math.Clamp(this.stats.hp / this.stats.maxHp, 0, 1), 9);
-    this.graphics.fillStyle(0x164e63, 1).fillRect(24, 48, 150, 8);
-    this.graphics.fillStyle(0x67e8f9, 1).fillRect(24, 48, 150 * Phaser.Math.Clamp(this.stats.exp / this.stats.nextExp, 0, 1), 8);
+    const margin = this.uiMargin();
+    const width = this.hudWidth();
+    const barWidth = width - 32;
+    const x = margin;
+    const y = margin;
+    this.hudText.setPosition(x + 6, y + 4);
+    this.graphics.fillStyle(0x020617, 0.38).fillRoundedRect(x, y, width, 58, 6);
+    this.graphics.fillStyle(0x3f1d2a, 0.86).fillRect(x + 12, y + 22, barWidth, 7);
+    this.graphics.fillStyle(0xfb7185, 0.95).fillRect(x + 12, y + 22, barWidth * Phaser.Math.Clamp(this.stats.hp / this.stats.maxHp, 0, 1), 7);
+    this.graphics.fillStyle(0x164e63, 0.86).fillRect(x + 12, y + 35, barWidth, 6);
+    this.graphics.fillStyle(0x67e8f9, 0.95).fillRect(x + 12, y + 35, barWidth * Phaser.Math.Clamp(this.stats.exp / this.stats.nextExp, 0, 1), 6);
     this.hudText.setText([
-      `Lv.${this.stats.level}   击败 ${this.kills}`,
+      `Lv.${this.stats.level}  ${this.timeText(MATCH_TIME - this.elapsed)}  击败 ${this.kills}`,
       `生命 ${Math.ceil(this.stats.hp)}/${this.stats.maxHp}`,
-      `时间 ${this.timeText(MATCH_TIME - this.elapsed)}`,
-      `武器 光${this.weaponLabel('laser')} 爪${this.weaponLabel('claw')} 呼${this.weaponLabel('purr')} 线${this.weaponLabel('yarn')}`,
-      `     露${this.weaponLabel('droplet')} 月${this.weaponLabel('crescent')}`,
-      `伤害 x${this.stats.damage.toFixed(2)}  攻速 x${this.stats.attackSpeed.toFixed(2)}`,
     ].join('\n'));
+    this.drawWeaponHud();
+  }
+
+  private drawWeaponHud() {
+    const weapons: Array<['laser' | 'claw' | 'purr' | 'yarn' | 'droplet' | 'crescent', string]> = [
+      ['laser', '光'],
+      ['claw', '爪'],
+      ['purr', '呼'],
+      ['yarn', '线'],
+      ['droplet', '露'],
+      ['crescent', '月'],
+    ];
+    const margin = this.uiMargin();
+    const width = Math.min(136, WIDTH - this.hudWidth() - margin * 3);
+    const x = WIDTH - width - margin;
+    const y = margin;
+    if (width < 112) return;
+    this.graphics.fillStyle(0x020617, 0.32).fillRoundedRect(x, y, width, 48, 6);
+    weapons.forEach(([id, label], index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      const colWidth = (width - 20) / 3;
+      const px = x + 10 + col * colWidth;
+      const py = y + 10 + row * 19;
+      const active = this.stats.weapons[id] > 0;
+      this.graphics.fillStyle(active ? 0xfef3c7 : 0x94a3b8, active ? 0.95 : 0.42).fillCircle(px, py + 3, 6);
+      this.addHudText(px + 10, py - 5, `${label}${this.weaponLabel(id)}`, active ? '#fef3c7' : '#94a3b8');
+    });
+  }
+
+  private addHudText(x: number, y: number, text: string, color: string) {
+    const item = this.add.text(x, y, text, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '10px',
+      color,
+      stroke: '#020617',
+      strokeThickness: 2,
+    });
+    this.time.delayedCall(16, () => item.destroy());
+  }
+
+  private uiMargin() {
+    return Math.max(10, Math.round(Math.min(WIDTH, HEIGHT) * 0.03));
+  }
+
+  private hudWidth() {
+    return Math.min(184, Math.max(164, Math.round(WIDTH * 0.47)));
+  }
+
+  private drawObstacles() {
+    for (const obstacle of this.obstacles) {
+      const x = this.screenX(obstacle.x);
+      const y = this.screenY(obstacle.y);
+      if (x < -90 || x > WIDTH + 90 || y < -90 || y > HEIGHT + 90) continue;
+      this.drawObstacle(obstacle, x, y);
+    }
+  }
+
+  private drawObstacle(obstacle: Obstacle, x: number, y: number) {
+    const flash = obstacle.hurtFlash > 0;
+    this.graphics.fillStyle(0x000000, 0.18).fillEllipse(x + 3, y + obstacle.height * 0.32, obstacle.width * 0.96, obstacle.height * 0.34);
+
+    if (obstacle.kind === 'furniture') {
+      const color = flash ? 0xffffff : 0x6b4f3a;
+      this.graphics.fillStyle(color, 1).fillRoundedRect(x - obstacle.width / 2, y - obstacle.height / 2, obstacle.width, obstacle.height, 6);
+      this.graphics.fillStyle(flash ? 0xffffff : 0x8b6f54, 1).fillRoundedRect(x - obstacle.width / 2 + 8, y - obstacle.height / 2 + 7, obstacle.width - 16, obstacle.height - 14, 4);
+      this.graphics.lineStyle(2, 0x3f2d20, 0.8).strokeRoundedRect(x - obstacle.width / 2, y - obstacle.height / 2, obstacle.width, obstacle.height, 6);
+      this.graphics.fillStyle(0xfacc15, 0.9).fillCircle(x + obstacle.width * 0.28, y, 3);
+      return;
+    }
+
+    if (obstacle.kind === 'box') {
+      const color = flash ? 0xffffff : 0xb7793b;
+      this.graphics.fillStyle(color, 1).fillRoundedRect(x - obstacle.width / 2, y - obstacle.height / 2, obstacle.width, obstacle.height, 5);
+      this.graphics.lineStyle(2, 0x7c4a23, 0.86).strokeRoundedRect(x - obstacle.width / 2, y - obstacle.height / 2, obstacle.width, obstacle.height, 5);
+      this.graphics.lineStyle(2, 0x8a572c, 0.6).lineBetween(x - obstacle.width / 2 + 8, y, x + obstacle.width / 2 - 8, y);
+      this.graphics.lineBetween(x, y - obstacle.height / 2 + 6, x, y + obstacle.height / 2 - 6);
+    } else {
+      const color = flash ? 0xffffff : 0xc084fc;
+      this.graphics.fillStyle(color, 1).fillRoundedRect(x - obstacle.width / 2, y - obstacle.height / 2, obstacle.width, obstacle.height, 12);
+      this.graphics.lineStyle(2, 0x7e22ce, 0.72).strokeRoundedRect(x - obstacle.width / 2, y - obstacle.height / 2, obstacle.width, obstacle.height, 12);
+      this.graphics.fillStyle(0xfef3c7, 0.85).fillCircle(x - 11, y - 5, 3);
+      this.graphics.fillCircle(x + 10, y + 7, 2.5);
+    }
+
+    if (obstacle.destructible && obstacle.hp < obstacle.maxHp) {
+      const ratio = Phaser.Math.Clamp(obstacle.hp / obstacle.maxHp, 0, 1);
+      this.graphics.fillStyle(0x020617, 0.55).fillRect(x - 22, y - obstacle.height / 2 - 8, 44, 4);
+      this.graphics.fillStyle(0xfbbf24, 1).fillRect(x - 22, y - obstacle.height / 2 - 8, 44 * ratio, 4);
+    }
+  }
+
+  private drawPickup(pickup: Pickup) {
+    const x = this.screenX(pickup.x);
+    const y = this.screenY(pickup.y);
+    if (pickup.kind === 'heal') {
+      this.graphics.fillStyle(0xbbf7d0, 1).fillCircle(x, y, pickup.radius);
+      this.graphics.fillStyle(0x166534, 1).fillRect(x - 2, y - 7, 4, 14).fillRect(x - 7, y - 2, 14, 4);
+      return;
+    }
+    if (pickup.kind === 'freeze') {
+      this.graphics.fillStyle(0xbfdbfe, 1).fillCircle(x, y, pickup.radius);
+      this.graphics.lineStyle(2, 0x2563eb, 0.9).strokeCircle(x, y, pickup.radius - 3);
+      return;
+    }
+    if (pickup.kind === 'magnet') {
+      this.graphics.fillStyle(0x67e8f9, 1).fillCircle(x, y, pickup.radius);
+      this.graphics.lineStyle(3, 0x0e7490, 0.95).beginPath().arc(x, y, 6, Math.PI * 0.18, Math.PI * 1.82).strokePath();
+      return;
+    }
+    this.graphics.fillStyle(0xfde68a, 1).fillEllipse(x, y, pickup.radius * 1.3, pickup.radius);
+    this.graphics.fillStyle(0x92400e, 1).fillCircle(x - 4, y, 1.6);
   }
 
   private drawWorldEdgeShadow() {
@@ -1043,17 +1334,6 @@ class SurvivorScene extends Phaser.Scene {
     }
   }
 
-  private updateObstacleSprites() {
-    this.obstacles.forEach((obstacle, index) => {
-      const sprite = this.obstacleSprites[index];
-      const x = this.screenX(obstacle.x);
-      const y = this.screenY(obstacle.y);
-      const visible = x > -70 && x < WIDTH + 70 && y > -70 && y < HEIGHT + 70;
-      const displaySize = Math.max(obstacle.width, obstacle.height) * 1.7;
-      sprite.setPosition(x, y).setDisplaySize(displaySize, displaySize).setVisible(visible);
-    });
-  }
-
   private gemColor(value: number) {
     if (value >= 10) return 0xf87171;
     if (value >= 5) return 0xc084fc;
@@ -1120,7 +1400,7 @@ export class SurvivorGame {
       height: HEIGHT,
       backgroundColor: '#111827',
       render: { antialias: true, antialiasGL: true, roundPixels: false },
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scale: { mode: Phaser.Scale.RESIZE },
       scene: [SurvivorScene],
     });
   }
