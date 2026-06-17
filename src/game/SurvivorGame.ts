@@ -30,6 +30,16 @@ const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 const FLOOR_TEXTURE_SIZE = 1254;
 const FLOOR_TILE_SIZE = 176;
 const FLOOR_TILE_SCALE = FLOOR_TILE_SIZE / FLOOR_TEXTURE_SIZE;
+const MAX_FLOATING_TEXTS = 28;
+const CATDREAM_ENEMY_PATH = '/assets/catdream/enemies';
+const ENEMY_SPRITE_META: Record<string, { frameHeight: number; contentHeight: number }> = {
+  enemy_shadow_imp: { frameHeight: 724, contentHeight: 296 },
+  enemy_curtain_wisp: { frameHeight: 724, contentHeight: 337 },
+  enemy_hooded_whisper: { frameHeight: 724, contentHeight: 366 },
+  enemy_purple_nightmare: { frameHeight: 724, contentHeight: 347 },
+  enemy_sock_bundle: { frameHeight: 256, contentHeight: 210 },
+  enemy_button_imp: { frameHeight: 256, contentHeight: 215 },
+};
 
 class SurvivorScene extends Phaser.Scene {
   private mode: GameMode = 'start';
@@ -76,6 +86,9 @@ class SurvivorScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private versionText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
+  private weaponHudTexts: Phaser.GameObjects.Text[] = [];
+  private floatingTextViews: Phaser.GameObjects.Text[] = [];
+  private enemySprites = new Map<number, Phaser.GameObjects.Sprite>();
   private buttonText!: Phaser.GameObjects.Text;
   private buttonBg!: Phaser.GameObjects.Rectangle;
   private upgradePanel: Phaser.GameObjects.GameObject[] = [];
@@ -87,10 +100,17 @@ class SurvivorScene extends Phaser.Scene {
 
   preload() {
     this.load.image('floor_tileset', '/assets/survivor/map/floor_tileset.png');
+    this.load.spritesheet('enemy_shadow_imp', `${CATDREAM_ENEMY_PATH}/enemy_shadow_imp_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
+    this.load.spritesheet('enemy_curtain_wisp', `${CATDREAM_ENEMY_PATH}/enemy_curtain_wisp_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
+    this.load.spritesheet('enemy_hooded_whisper', `${CATDREAM_ENEMY_PATH}/enemy_hooded_whisper_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
+    this.load.spritesheet('enemy_purple_nightmare', `${CATDREAM_ENEMY_PATH}/enemy_purple_nightmare_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
+    this.load.spritesheet('enemy_sock_bundle', `${CATDREAM_ENEMY_PATH}/enemy_sock_bundle_walk_right_6x1.png`, { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet('enemy_button_imp', `${CATDREAM_ENEMY_PATH}/enemy_button_imp_walk_right_6x1.png`, { frameWidth: 256, frameHeight: 256 });
   }
 
   create() {
     this.updateViewSize();
+    this.createEnemyAnimations();
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keys = this.input.keyboard?.addKeys('W,A,S,D,SPACE,ENTER') as Record<string, Phaser.Input.Keyboard.Key> | undefined;
     this.floorTile = this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'floor_tileset').setOrigin(0).setDepth(-10);
@@ -128,6 +148,7 @@ class SurvivorScene extends Phaser.Scene {
       color: '#f8fafc',
       lineSpacing: 3,
     });
+    this.createReusableTextViews();
 
     this.buttonBg.on('pointerdown', () => this.handlePrimaryAction());
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.onPointerDown(pointer));
@@ -136,6 +157,44 @@ class SurvivorScene extends Phaser.Scene {
     this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => this.onPointerUp(pointer));
     this.scale.on('resize', this.onResize, this);
     this.layoutHomeUi();
+  }
+
+  private createEnemyAnimations() {
+    this.createEnemyAnimation('enemy_shadow_imp', 0, 2);
+    this.createEnemyAnimation('enemy_curtain_wisp', 0, 2);
+    this.createEnemyAnimation('enemy_hooded_whisper', 0, 2);
+    this.createEnemyAnimation('enemy_purple_nightmare', 0, 2);
+    this.createEnemyAnimation('enemy_sock_bundle', 0, 5);
+    this.createEnemyAnimation('enemy_button_imp', 0, 5);
+  }
+
+  private createEnemyAnimation(key: string, start: number, end: number) {
+    const animKey = `${key}_walk`;
+    if (this.anims.exists(animKey)) return;
+    this.anims.create({
+      key: animKey,
+      frames: this.anims.generateFrameNumbers(key, { start, end }),
+      frameRate: 6,
+      repeat: -1,
+    });
+  }
+
+  private createReusableTextViews() {
+    this.weaponHudTexts = Array.from({ length: 6 }, () => this.add.text(0, 0, '', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '10px',
+      color: '#94a3b8',
+      stroke: '#020617',
+      strokeThickness: 2,
+    }).setVisible(false));
+
+    this.floatingTextViews = Array.from({ length: MAX_FLOATING_TEXTS }, () => this.add.text(0, 0, '', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '13px',
+      color: '#ffffff',
+      stroke: '#020617',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setVisible(false).setDepth(12));
   }
 
   update(_time: number, deltaMs: number) {
@@ -197,6 +256,7 @@ class SurvivorScene extends Phaser.Scene {
     this.lastMove.set(0, -1);
     this.stats = createBaseStats();
     this.enemies = [];
+    this.clearEnemySprites();
     this.gems = [];
     this.chests = [];
     this.obstacles = this.createObstacles();
@@ -317,7 +377,8 @@ class SurvivorScene extends Phaser.Scene {
       const auraRadius = 42 + purrLevel * 17 + this.stats.aura * 5 + (purrEvolved ? 32 : 0);
       const auraDamage = (6 + purrLevel * 4 + this.stats.aura) * this.stats.damage * delta * (purrEvolved ? 1.65 : 1);
       for (const enemy of this.enemies) {
-        if (Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius) {
+        const hitRadius = auraRadius + enemy.radius;
+        if (this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y) < hitRadius * hitRadius) {
           this.hurtEnemy(enemy, auraDamage, '#bae6fd');
         }
       }
@@ -335,7 +396,8 @@ class SurvivorScene extends Phaser.Scene {
         const y = this.player.y + Math.sin(angle) * orbit;
         for (const enemy of this.enemies) {
           if (enemy.yarnCooldown > this.elapsed) continue;
-          if (Phaser.Math.Distance.Between(x, y, enemy.x, enemy.y) <= 14 + enemy.radius) {
+          const hitRadius = 14 + enemy.radius;
+          if (this.distanceSq(x, y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
             this.hurtEnemy(enemy, damage, '#fde68a');
             enemy.yarnCooldown = this.elapsed + hitCooldown;
           }
@@ -446,7 +508,8 @@ class SurvivorScene extends Phaser.Scene {
     for (const zone of this.zones) {
       zone.life -= delta;
       for (const enemy of this.enemies) {
-        if (Phaser.Math.Distance.Between(zone.x, zone.y, enemy.x, enemy.y) <= zone.radius + enemy.radius) {
+        const hitRadius = zone.radius + enemy.radius;
+        if (this.distanceSq(zone.x, zone.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
           this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe');
         }
       }
@@ -463,8 +526,8 @@ class SurvivorScene extends Phaser.Scene {
       projectile.life -= delta;
       for (const enemy of this.enemies) {
         if (projectile.hit.has(enemy.id)) continue;
-        const distance = Phaser.Math.Distance.Between(projectile.x, projectile.y, enemy.x, enemy.y);
-        if (distance <= projectile.radius + enemy.radius) {
+        const hitRadius = projectile.radius + enemy.radius;
+        if (this.distanceSq(projectile.x, projectile.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
           projectile.hit.add(enemy.id);
           this.hurtEnemy(enemy, projectile.damage, '#ffffff');
           if (projectile.pierce > 0) {
@@ -501,8 +564,8 @@ class SurvivorScene extends Phaser.Scene {
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
         this.moveCircleWithObstacles(enemy, Math.cos(angle) * enemy.speed * delta, Math.sin(angle) * enemy.speed * delta);
       }
-      const distance = Phaser.Math.Distance.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-      if (distance <= enemy.radius + this.player.radius && this.player.hurtCooldown <= 0) {
+      const hitRadius = enemy.radius + this.player.radius;
+      if (this.distanceSq(enemy.x, enemy.y, this.player.x, this.player.y) <= hitRadius * hitRadius && this.player.hurtCooldown <= 0) {
         this.stats.hp -= enemy.damage;
         this.player.hurtCooldown = 0.55;
         this.addText(this.player.x, this.player.y - 28, `-${enemy.damage}`, '#fecaca');
@@ -511,6 +574,7 @@ class SurvivorScene extends Phaser.Scene {
 
     const dead = this.enemies.filter((enemy) => enemy.hp <= 0);
     for (const enemy of dead) {
+      this.destroyEnemySprite(enemy.id);
       this.kills++;
       this.gems.push(this.createExpGem(enemy));
       if (this.stats.evolved.purr && this.isEnemyInPurrAura(enemy)) {
@@ -523,6 +587,13 @@ class SurvivorScene extends Phaser.Scene {
       }
     }
     this.enemies = this.enemies.filter((enemy) => enemy.hp > 0);
+  }
+
+  private destroyEnemySprite(id: number) {
+    const sprite = this.enemySprites.get(id);
+    if (!sprite) return;
+    sprite.destroy();
+    this.enemySprites.delete(id);
   }
 
   private createExpGem(enemy: Enemy): Gem {
@@ -563,21 +634,24 @@ class SurvivorScene extends Phaser.Scene {
 
   private isEnemyInPurrAura(enemy: Enemy) {
     const auraRadius = 42 + this.stats.weapons.purr * 17 + this.stats.aura * 5 + (this.stats.evolved.purr ? 32 : 0);
-    return Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y) < auraRadius + enemy.radius;
+    const hitRadius = auraRadius + enemy.radius;
+    return this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y) < hitRadius * hitRadius;
   }
 
   private updateGems(delta: number) {
     const pickupRadius = PICKUP_TUNING.baseRadius * this.stats.pickup;
     for (const gem of this.gems) {
-      const distance = Phaser.Math.Distance.Between(gem.x, gem.y, this.player.x, this.player.y);
-      if (distance < pickupRadius) {
+      const distanceSq = this.distanceSq(gem.x, gem.y, this.player.x, this.player.y);
+      if (distanceSq < pickupRadius * pickupRadius) {
+        const distance = Math.sqrt(distanceSq);
         const angle = Phaser.Math.Angle.Between(gem.x, gem.y, this.player.x, this.player.y);
         const pull = 1 - distance / pickupRadius;
         const speed = Phaser.Math.Linear(PICKUP_TUNING.minMagnetSpeed, PICKUP_TUNING.maxMagnetSpeed, pull);
         gem.x += Math.cos(angle) * speed * delta;
         gem.y += Math.sin(angle) * speed * delta;
       }
-      if (distance <= gem.radius + this.player.radius + 4) {
+      const collectRadius = gem.radius + this.player.radius + 4;
+      if (distanceSq <= collectRadius * collectRadius) {
         this.gainExp(gem.value);
         gem.value = 0;
       }
@@ -587,7 +661,8 @@ class SurvivorScene extends Phaser.Scene {
 
   private updatePickups() {
     for (const pickup of this.pickups) {
-      if (Phaser.Math.Distance.Between(pickup.x, pickup.y, this.player.x, this.player.y) <= pickup.radius + this.player.radius + 6) {
+      const collectRadius = pickup.radius + this.player.radius + 6;
+      if (this.distanceSq(pickup.x, pickup.y, this.player.x, this.player.y) <= collectRadius * collectRadius) {
         this.applyPickup(pickup);
         pickup.radius = 0;
       }
@@ -621,8 +696,8 @@ class SurvivorScene extends Phaser.Scene {
 
   private updateChests() {
     for (const chest of this.chests) {
-      const distance = Phaser.Math.Distance.Between(chest.x, chest.y, this.player.x, this.player.y);
-      if (distance <= chest.radius + this.player.radius + 8) {
+      const collectRadius = chest.radius + this.player.radius + 8;
+      if (this.distanceSq(chest.x, chest.y, this.player.x, this.player.y) <= collectRadius * collectRadius) {
         this.openChest(chest);
         chest.radius = 0;
       }
@@ -667,7 +742,7 @@ class SurvivorScene extends Phaser.Scene {
     const minute = this.elapsed / 60;
     const enemyKind = elite ? 'elite' : kind ?? chooseEnemyKind(minute);
     const { hp, speed, radius, damage, color } = createEnemySpawnStats(minute, elite, enemyKind === 'elite' ? 'basic' : enemyKind);
-    this.enemies.push({
+    const enemy: Enemy = {
       id: this.enemyId++,
       kind: enemyKind,
       x,
@@ -681,7 +756,47 @@ class SurvivorScene extends Phaser.Scene {
       elite,
       hurtFlash: 0,
       yarnCooldown: 0,
-    });
+    };
+    this.enemies.push(enemy);
+    this.createEnemySprite(enemy, enemyKind, minute);
+  }
+
+  private createEnemySprite(enemy: Enemy, kind: EnemyKind | 'elite', minute: number) {
+    const key = this.enemyTextureKey(kind, minute);
+    const sprite = this.add.sprite(this.screenX(enemy.x), this.screenY(enemy.y), key)
+      .setDepth(-1)
+      .setOrigin(0.5, 0.58)
+      .play(`${key}_walk`);
+    const size = this.enemySpriteSize(enemy, key);
+    sprite.setDisplaySize(size, size);
+    this.enemySprites.set(enemy.id, sprite);
+  }
+
+  private enemyTextureKey(kind: EnemyKind | 'elite', minute: number) {
+    if (kind === 'fast') return 'enemy_button_imp';
+    if (kind === 'tank') return 'enemy_sock_bundle';
+    if (kind === 'swarm') return 'enemy_curtain_wisp';
+    if (kind === 'elite') return 'enemy_purple_nightmare';
+    return minute >= 5 ? 'enemy_hooded_whisper' : 'enemy_shadow_imp';
+  }
+
+  private enemySpriteSize(enemy: Enemy, key: string) {
+    const meta = ENEMY_SPRITE_META[key] ?? { frameHeight: 256, contentHeight: 220 };
+    const visualHeight = enemy.radius * this.enemyVisualHeightScale(enemy.kind);
+    return (visualHeight * meta.frameHeight) / meta.contentHeight;
+  }
+
+  private enemyVisualHeightScale(kind: Enemy['kind']) {
+    if (kind === 'elite') return 3;
+    if (kind === 'tank') return 2.9;
+    if (kind === 'fast') return 2.6;
+    if (kind === 'swarm') return 2.6;
+    return 2.8;
+  }
+
+  private clearEnemySprites() {
+    for (const sprite of this.enemySprites.values()) sprite.destroy();
+    this.enemySprites.clear();
   }
 
   private spawnDirectionalSwarm(minute: number) {
@@ -798,7 +913,7 @@ class SurvivorScene extends Phaser.Scene {
     const bottom = obstacle.y + obstacle.height / 2;
     const nearestX = Phaser.Math.Clamp(x, left, right);
     const nearestY = Phaser.Math.Clamp(y, top, bottom);
-    return Phaser.Math.Distance.Between(x, y, nearestX, nearestY) <= radius;
+    return this.distanceSq(x, y, nearestX, nearestY) <= radius * radius;
   }
 
   private hurtObstacle(obstacle: Obstacle, amount: number) {
@@ -1010,7 +1125,7 @@ class SurvivorScene extends Phaser.Scene {
     let best: Enemy | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const enemy of this.enemies) {
-      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+      const distance = this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y);
       if (distance < bestDistance) {
         best = enemy;
         bestDistance = distance;
@@ -1020,6 +1135,10 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private addText(x: number, y: number, text: string, color: string) {
+    if (this.texts.length >= MAX_FLOATING_TEXTS) {
+      const oldest = this.texts.reduce((best, item, index, list) => (item.life < list[best].life ? index : best), 0);
+      this.texts.splice(oldest, 1);
+    }
     this.texts.push({ x, y, text, color, life: 0.72 });
   }
 
@@ -1212,15 +1331,23 @@ class SurvivorScene extends Phaser.Scene {
     this.graphics.fillTriangle(playerX - 13, playerY - 12, playerX - 8, playerY - 28, playerX, playerY - 14);
     this.graphics.fillTriangle(playerX + 13, playerY - 12, playerX + 8, playerY - 28, playerX, playerY - 14);
 
-    for (const item of this.texts) {
-      const text = this.add.text(this.screenX(item.x), this.screenY(item.y), item.text, {
-        fontFamily: 'Arial, sans-serif',
-        fontSize: '13px',
-        color: item.color,
-        stroke: '#020617',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setAlpha(Math.max(0, item.life / 0.72));
-      this.time.delayedCall(16, () => text.destroy());
+    this.renderFloatingTexts();
+  }
+
+  private renderFloatingTexts() {
+    for (let i = 0; i < this.floatingTextViews.length; i++) {
+      const view = this.floatingTextViews[i];
+      const item = this.texts[i];
+      if (!item) {
+        view.setVisible(false);
+        continue;
+      }
+      view
+        .setText(item.text)
+        .setColor(item.color)
+        .setPosition(this.screenX(item.x), this.screenY(item.y))
+        .setAlpha(Math.max(0, item.life / 0.72))
+        .setVisible(true);
     }
   }
 
@@ -1256,7 +1383,10 @@ class SurvivorScene extends Phaser.Scene {
     const width = Math.min(136, WIDTH - this.hudWidth() - margin * 3);
     const x = WIDTH - width - margin;
     const y = margin;
-    if (width < 112) return;
+    if (width < 112) {
+      this.weaponHudTexts.forEach((item) => item.setVisible(false));
+      return;
+    }
     this.graphics.fillStyle(0x020617, 0.32).fillRoundedRect(x, y, width, 48, 6);
     weapons.forEach(([id, label], index) => {
       const col = index % 3;
@@ -1266,19 +1396,12 @@ class SurvivorScene extends Phaser.Scene {
       const py = y + 10 + row * 19;
       const active = this.stats.weapons[id] > 0;
       this.graphics.fillStyle(active ? 0xfef3c7 : 0x94a3b8, active ? 0.95 : 0.42).fillCircle(px, py + 3, 6);
-      this.addHudText(px + 10, py - 5, `${label}${this.weaponLabel(id)}`, active ? '#fef3c7' : '#94a3b8');
+      this.weaponHudTexts[index]
+        .setText(`${label}${this.weaponLabel(id)}`)
+        .setColor(active ? '#fef3c7' : '#94a3b8')
+        .setPosition(px + 10, py - 5)
+        .setVisible(true);
     });
-  }
-
-  private addHudText(x: number, y: number, text: string, color: string) {
-    const item = this.add.text(x, y, text, {
-      fontFamily: 'Arial, sans-serif',
-      fontSize: '10px',
-      color,
-      stroke: '#020617',
-      strokeThickness: 2,
-    });
-    this.time.delayedCall(16, () => item.destroy());
   }
 
   private uiMargin() {
@@ -1381,20 +1504,16 @@ class SurvivorScene extends Phaser.Scene {
   private drawEnemy(enemy: Enemy) {
     const x = this.screenX(enemy.x);
     const y = this.screenY(enemy.y);
-    const color = enemy.hurtFlash > 0 ? 0xffffff : enemy.color;
-    this.graphics.fillStyle(0x000000, 0.18).fillEllipse(x + 2, y + enemy.radius * 0.55, enemy.radius * 1.8, enemy.radius * 0.72);
-
-    if (enemy.kind === 'fast') {
-      this.graphics.fillStyle(color, 1).fillTriangle(x, y - enemy.radius - 3, x - enemy.radius * 0.8, y + enemy.radius * 0.72, x + enemy.radius * 0.8, y + enemy.radius * 0.72);
-      this.graphics.lineStyle(2, 0xfef3c7, 0.65).strokeTriangle(x, y - enemy.radius - 3, x - enemy.radius * 0.8, y + enemy.radius * 0.72, x + enemy.radius * 0.8, y + enemy.radius * 0.72);
-    } else if (enemy.kind === 'tank') {
-      this.graphics.fillStyle(color, 1).fillRoundedRect(x - enemy.radius, y - enemy.radius * 0.85, enemy.radius * 2, enemy.radius * 1.7, 8);
-      this.graphics.lineStyle(2, 0xddd6fe, 0.55).strokeRoundedRect(x - enemy.radius, y - enemy.radius * 0.85, enemy.radius * 2, enemy.radius * 1.7, 8);
-    } else if (enemy.kind === 'swarm') {
-      this.graphics.fillStyle(color, 1).fillEllipse(x, y, enemy.radius * 2.25, enemy.radius * 1.3);
-      this.graphics.fillStyle(0x1e3a8a, 0.55).fillTriangle(x - enemy.radius * 0.25, y, x - enemy.radius * 1.45, y - enemy.radius * 0.65, x - enemy.radius * 1.18, y + enemy.radius * 0.58);
-      this.graphics.fillTriangle(x + enemy.radius * 0.25, y, x + enemy.radius * 1.45, y - enemy.radius * 0.65, x + enemy.radius * 1.18, y + enemy.radius * 0.58);
+    const sprite = this.enemySprites.get(enemy.id);
+    if (sprite) {
+      sprite
+        .setPosition(x, y)
+        .setFlipX(this.player.x < enemy.x)
+        .setAlpha(x < -100 || x > WIDTH + 100 || y < -100 || y > HEIGHT + 100 ? 0 : 1);
+      if (enemy.hurtFlash > 0) sprite.setTintFill(0xffffff);
+      else sprite.clearTint();
     } else {
+      const color = enemy.hurtFlash > 0 ? 0xffffff : enemy.color;
       this.graphics.fillStyle(color, 1).fillCircle(x, y, enemy.radius);
     }
 
@@ -1522,6 +1641,12 @@ class SurvivorScene extends Phaser.Scene {
     return y - this.cameraY();
   }
 
+  private distanceSq(ax: number, ay: number, bx: number, by: number) {
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx * dx + dy * dy;
+  }
+
   private timeText(value: number) {
     const safe = Math.max(0, Math.ceil(value));
     return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`;
@@ -1538,7 +1663,7 @@ export class SurvivorGame {
       width: WIDTH,
       height: HEIGHT,
       backgroundColor: '#111827',
-      render: { antialias: true, antialiasGL: true, roundPixels: false },
+      render: { antialias: true, antialiasGL: true, roundPixels: false, powerPreference: 'high-performance' },
       scale: { mode: Phaser.Scale.RESIZE },
       scene: [SurvivorScene],
     });
