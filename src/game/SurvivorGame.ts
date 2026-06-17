@@ -25,7 +25,9 @@ const WIDTH = GAME_WIDTH;
 const HEIGHT = GAME_HEIGHT;
 const MATCH_TIME = MATCH_TIME_SECONDS;
 const VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
-const FLOOR_TILE_SCALE = 0.14;
+const FLOOR_TEXTURE_SIZE = 1254;
+const FLOOR_TILE_SIZE = 176;
+const FLOOR_TILE_SCALE = FLOOR_TILE_SIZE / FLOOR_TEXTURE_SIZE;
 
 class SurvivorScene extends Phaser.Scene {
   private mode: GameMode = 'start';
@@ -878,6 +880,7 @@ class SurvivorScene extends Phaser.Scene {
       return;
     }
     this.drawWorld();
+    this.drawWorldEdgeShadow();
     this.drawHud();
     if (this.mode === 'playing') this.drawJoystick();
     if (this.mode === 'gameover') {
@@ -886,7 +889,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private drawBackground() {
-    this.floorTile.setTilePosition(this.cameraX() / FLOOR_TILE_SCALE, this.cameraY() / FLOOR_TILE_SCALE);
+    this.floorTile.setTilePosition(Math.round(this.cameraX()) / FLOOR_TILE_SCALE, Math.round(this.cameraY()) / FLOOR_TILE_SCALE);
   }
 
   private drawStartScene() {
@@ -968,6 +971,76 @@ class SurvivorScene extends Phaser.Scene {
       `     露${this.weaponLabel('droplet')} 月${this.weaponLabel('crescent')}`,
       `伤害 x${this.stats.damage.toFixed(2)}  攻速 x${this.stats.attackSpeed.toFixed(2)}`,
     ].join('\n'));
+  }
+
+  private drawWorldEdgeShadow() {
+    const fade = 120;
+    const steps = 10;
+    const maxAlpha = 0.62;
+    const left = this.screenX(0);
+    const right = this.screenX(WORLD_WIDTH);
+    const top = this.screenY(0);
+    const bottom = this.screenY(WORLD_HEIGHT);
+
+    if (left > 0) {
+      this.graphics.fillStyle(0x020617, maxAlpha).fillRect(0, 0, left, HEIGHT);
+      for (let i = 0; i < steps; i++) {
+        const alpha = maxAlpha * (1 - i / steps) * 0.55;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(left + (fade / steps) * i, 0, fade / steps + 1, HEIGHT);
+      }
+    } else if (left > -fade) {
+      const visible = left + fade;
+      for (let i = 0; i < steps; i++) {
+        const x = Math.max(0, left + (visible / steps) * i);
+        const alpha = maxAlpha * (1 - i / steps) * 0.38;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(x, 0, visible / steps + 1, HEIGHT);
+      }
+    }
+
+    if (right < WIDTH) {
+      this.graphics.fillStyle(0x020617, maxAlpha).fillRect(right, 0, WIDTH - right, HEIGHT);
+      for (let i = 0; i < steps; i++) {
+        const alpha = maxAlpha * (1 - i / steps) * 0.55;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(right - (fade / steps) * (i + 1), 0, fade / steps + 1, HEIGHT);
+      }
+    } else if (right < WIDTH + fade) {
+      const visible = WIDTH + fade - right;
+      for (let i = 0; i < steps; i++) {
+        const x = Math.min(WIDTH, right - (visible / steps) * (i + 1));
+        const alpha = maxAlpha * (1 - i / steps) * 0.38;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(x, 0, visible / steps + 1, HEIGHT);
+      }
+    }
+
+    if (top > 0) {
+      this.graphics.fillStyle(0x020617, maxAlpha).fillRect(0, 0, WIDTH, top);
+      for (let i = 0; i < steps; i++) {
+        const alpha = maxAlpha * (1 - i / steps) * 0.55;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(0, top + (fade / steps) * i, WIDTH, fade / steps + 1);
+      }
+    } else if (top > -fade) {
+      const visible = top + fade;
+      for (let i = 0; i < steps; i++) {
+        const y = Math.max(0, top + (visible / steps) * i);
+        const alpha = maxAlpha * (1 - i / steps) * 0.38;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(0, y, WIDTH, visible / steps + 1);
+      }
+    }
+
+    if (bottom < HEIGHT) {
+      this.graphics.fillStyle(0x020617, maxAlpha).fillRect(0, bottom, WIDTH, HEIGHT - bottom);
+      for (let i = 0; i < steps; i++) {
+        const alpha = maxAlpha * (1 - i / steps) * 0.55;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(0, bottom - (fade / steps) * (i + 1), WIDTH, fade / steps + 1);
+      }
+    } else if (bottom < HEIGHT + fade) {
+      const visible = HEIGHT + fade - bottom;
+      for (let i = 0; i < steps; i++) {
+        const y = Math.min(HEIGHT, bottom - (visible / steps) * (i + 1));
+        const alpha = maxAlpha * (1 - i / steps) * 0.38;
+        this.graphics.fillStyle(0x020617, alpha).fillRect(0, y, WIDTH, visible / steps + 1);
+      }
+    }
   }
 
   private updateObstacleSprites() {
