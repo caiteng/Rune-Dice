@@ -113,6 +113,10 @@ export function createUpgradeOptions(stats: Stats): Upgrade[] {
   const fallback: Upgrade = {
     title: '夜宵补给',
     desc: '恢复 25 点生命。',
+    kind: 'heal',
+    currentLevel: 0,
+    maxLevel: 0,
+    isNew: false,
     apply: (stats) => {
       stats.hp = Math.min(stats.maxHp, stats.hp + 25);
     },
@@ -124,6 +128,10 @@ function weaponUpgrade(id: WeaponId, nextLevel: number): Upgrade {
   return {
     title: `${WEAPON_NAMES[id]} Lv.${nextLevel}`,
     desc: WEAPON_DESCS[id],
+    kind: 'weapon',
+    currentLevel: nextLevel - 1,
+    maxLevel: MAX_WEAPON_LEVEL,
+    isNew: nextLevel === 1,
     apply: (stats) => {
       upgradeWeapon(stats, id);
     },
@@ -145,6 +153,10 @@ function passiveUpgrade(id: PassiveId, nextLevel: number): Upgrade {
   return {
     title: `${passive.name} Lv.${nextLevel}`,
     desc: passive.desc,
+    kind: 'passive',
+    currentLevel: nextLevel - 1,
+    maxLevel: MAX_PASSIVE_LEVEL,
+    isNew: nextLevel === 1,
     apply: (stats) => {
       if (stats.passives[id] >= MAX_PASSIVE_LEVEL) return;
       stats.passives[id]++;

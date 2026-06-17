@@ -20,7 +20,7 @@ import {
   type Upgrade,
   type Zone,
 } from './survivor/types';
-import { createEnemySpawnStats, spawnCountForMinute, spawnIntervalForMinute } from './survivor/waves';
+import { chooseEnemyKind, createEnemySpawnStats, type EnemyKind, spawnCountForMinute, spawnIntervalForMinute } from './survivor/waves';
 import { INPUT_TUNING, PICKUP_TUNING, PLAYER_TUNING } from './survivor/tuning';
 
 let WIDTH = GAME_WIDTH;
@@ -37,6 +37,7 @@ class SurvivorScene extends Phaser.Scene {
   private kills = 0;
   private enemyId = 1;
   private spawnTimer = 0;
+  private swarmTimer = 125;
   private eliteTimer = 55;
   private laserTimer = 0;
   private clawTimer = 0;
@@ -185,6 +186,7 @@ class SurvivorScene extends Phaser.Scene {
     this.kills = 0;
     this.enemyId = 1;
     this.spawnTimer = 0;
+    this.swarmTimer = 125;
     this.eliteTimer = 55;
     this.laserTimer = 0.25;
     this.clawTimer = 0.8;
@@ -276,38 +278,39 @@ class SurvivorScene extends Phaser.Scene {
     this.crescentTimer -= delta;
     if (laserLevel > 0 && this.laserTimer <= 0) {
       const evolved = this.stats.evolved.laser;
-      const shots = evolved ? 2 : 1;
+      const shots = evolved ? 2 : laserLevel >= 5 ? 2 : 1;
       for (let i = 0; i < shots; i++) {
         this.fireAtNearest(
-          (22 + laserLevel * 7) * this.stats.damage * (evolved ? 1.35 : 1),
+          (24 + laserLevel * 7.5) * this.stats.damage * (evolved ? 1.35 : 1),
           (440 + i * 40) * this.stats.projectileSpeed,
           evolved ? 0xa5f3fc : 0x7dd3fc,
-          evolved ? 4 : laserLevel >= 4 ? 2 : 1,
+          evolved ? 4 : laserLevel >= 6 ? 3 : laserLevel >= 3 ? 2 : 1,
         );
       }
-      this.laserTimer = Math.max(evolved ? 0.08 : 0.1, (0.74 - laserLevel * 0.06) * attackScale * (evolved ? 0.46 : 1));
+      this.laserTimer = Math.max(evolved ? 0.08 : 0.16, (0.68 - laserLevel * 0.055) * attackScale * (evolved ? 0.46 : 1));
     }
     if (clawLevel > 0 && this.clawTimer <= 0) {
       const evolved = this.stats.evolved.claw;
-      const count = Math.min(evolved ? 6 : 5, 1 + Math.floor((clawLevel - 1) / 2) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
+      const count = Math.min(evolved ? 6 : 5, 1 + Math.floor(clawLevel / 2) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
       const baseAngle = this.lastMove.angle();
       for (let i = 0; i < count; i++) {
         const angle = baseAngle + (i - (count - 1) / 2) * (evolved ? 0.06 : 0.32);
         this.projectiles.push({
+          kind: 'claw',
           x: this.player.x,
           y: this.player.y,
           vx: Math.cos(angle) * (evolved ? 520 : 330) * this.stats.projectileSpeed,
           vy: Math.sin(angle) * (evolved ? 520 : 330) * this.stats.projectileSpeed,
           gravity: 0,
           radius: 7,
-          damage: (13 + clawLevel * 5) * this.stats.damage * (evolved ? 1.12 : 1),
+          damage: (15 + clawLevel * 5.4) * this.stats.damage * (evolved ? 1.12 : 1),
           life: evolved ? 1.2 : 1,
           color: evolved ? 0xfde68a : 0xffa366,
-          pierce: evolved ? 8 : clawLevel >= 4 ? 2 : 1,
+          pierce: evolved ? 8 : clawLevel >= 5 ? 3 : clawLevel >= 2 ? 2 : 1,
           hit: new Set(),
         });
       }
-      this.clawTimer = evolved ? Math.max(0.08, 0.16 * attackScale) : Math.max(0.24, (1.1 - clawLevel * 0.05) * attackScale);
+      this.clawTimer = evolved ? Math.max(0.08, 0.16 * attackScale) : Math.max(0.2, (0.94 - clawLevel * 0.045) * attackScale);
     }
     if (purrLevel > 0) {
       const purrEvolved = this.stats.evolved.purr;
@@ -364,6 +367,7 @@ class SurvivorScene extends Phaser.Scene {
     if (!target) return;
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
     this.projectiles.push({
+      kind: 'magic',
       x: this.player.x,
       y: this.player.y,
       vx: Math.cos(angle) * speed,
@@ -399,6 +403,7 @@ class SurvivorScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const offset = (i - (count - 1) / 2) * 0.26;
       this.projectiles.push({
+        kind: 'crescent',
         x: this.player.x,
         y: this.player.y - 8,
         vx: Math.sin(offset) * baseSpeed,
@@ -421,6 +426,7 @@ class SurvivorScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const angle = phase + (Math.PI * 2 * i) / count;
       this.projectiles.push({
+        kind: 'crescent',
         x: this.player.x,
         y: this.player.y,
         vx: Math.cos(angle) * speed,
@@ -634,12 +640,17 @@ class SurvivorScene extends Phaser.Scene {
 
   private spawnEnemies(delta: number) {
     this.spawnTimer -= delta;
+    this.swarmTimer -= delta;
     this.eliteTimer -= delta;
     const minute = this.elapsed / 60;
     if (this.spawnTimer <= 0) {
       const count = spawnCountForMinute(minute);
-      for (let i = 0; i < count; i++) this.spawnEnemy(false);
+      for (let i = 0; i < count; i++) this.spawnEnemy(false, chooseEnemyKind(minute));
       this.spawnTimer = spawnIntervalForMinute(minute);
+    }
+    if (minute >= 2 && this.swarmTimer <= 0) {
+      this.spawnDirectionalSwarm(minute);
+      this.swarmTimer = Phaser.Math.Between(48, 64);
     }
     if (this.eliteTimer <= 0) {
       this.spawnEnemy(true);
@@ -647,16 +658,18 @@ class SurvivorScene extends Phaser.Scene {
     }
   }
 
-  private spawnEnemy(elite: boolean) {
-    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+  private spawnEnemy(elite: boolean, kind?: EnemyKind, forcedX?: number, forcedY?: number) {
+    const angle = forcedX === undefined || forcedY === undefined ? Phaser.Math.FloatBetween(0, Math.PI * 2) : 0;
     const radiusFromPlayer = Math.max(WIDTH, HEIGHT) * 0.68;
-    const x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * radiusFromPlayer, 12, WORLD_WIDTH - 12);
-    const y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * radiusFromPlayer, 12, WORLD_HEIGHT - 12);
+    const x = forcedX ?? Phaser.Math.Clamp(this.player.x + Math.cos(angle) * radiusFromPlayer, 12, WORLD_WIDTH - 12);
+    const y = forcedY ?? Phaser.Math.Clamp(this.player.y + Math.sin(angle) * radiusFromPlayer, 12, WORLD_HEIGHT - 12);
 
     const minute = this.elapsed / 60;
-    const { hp, speed, radius, damage, color } = createEnemySpawnStats(minute, elite);
+    const enemyKind = elite ? 'elite' : kind ?? chooseEnemyKind(minute);
+    const { hp, speed, radius, damage, color } = createEnemySpawnStats(minute, elite, enemyKind === 'elite' ? 'basic' : enemyKind);
     this.enemies.push({
       id: this.enemyId++,
+      kind: enemyKind,
       x,
       y,
       hp,
@@ -669,6 +682,34 @@ class SurvivorScene extends Phaser.Scene {
       hurtFlash: 0,
       yarnCooldown: 0,
     });
+  }
+
+  private spawnDirectionalSwarm(minute: number) {
+    const side = Phaser.Math.Between(0, 3);
+    const count = Math.min(34, 14 + Math.floor(minute * 2.2));
+    const spacing = 24;
+    const centerOffset = ((count - 1) * spacing) / 2;
+    const distance = Math.max(WIDTH, HEIGHT) * 0.64;
+    for (let i = 0; i < count; i++) {
+      const offset = i * spacing - centerOffset + Phaser.Math.Between(-8, 8);
+      let x = this.player.x;
+      let y = this.player.y;
+      if (side === 0) {
+        x -= distance;
+        y += offset;
+      } else if (side === 1) {
+        x += distance;
+        y += offset;
+      } else if (side === 2) {
+        x += offset;
+        y -= distance;
+      } else {
+        x += offset;
+        y += distance;
+      }
+      this.spawnEnemy(false, 'swarm', Phaser.Math.Clamp(x, 12, WORLD_WIDTH - 12), Phaser.Math.Clamp(y, 12, WORLD_HEIGHT - 12));
+    }
+    this.addText(this.player.x, this.player.y - 72, '怪潮靠近', '#bfdbfe');
   }
 
   private createObstacles(): Obstacle[] {
@@ -861,33 +902,86 @@ class SurvivorScene extends Phaser.Scene {
     const cardWidth = panelWidth - 52;
     const panelHeight = Math.min(408, HEIGHT - margin * 8);
     const panelTop = (HEIGHT - panelHeight) / 2;
-    const bg = this.add.rectangle(WIDTH / 2, HEIGHT / 2, panelWidth, panelHeight, 0x111827, 0.98).setStrokeStyle(2, 0xfacc15, 0.9);
+    const shade = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x020617, 0.46).setDepth(30);
+    const bg = this.add.rectangle(WIDTH / 2, HEIGHT / 2, panelWidth, panelHeight, 0x111827, 0.98)
+      .setStrokeStyle(2, 0xfacc15, 0.9)
+      .setDepth(31);
+    const inner = this.add.rectangle(WIDTH / 2, HEIGHT / 2, panelWidth - 14, panelHeight - 14, 0x020617, 0)
+      .setStrokeStyle(1, 0xffffff, 0.08)
+      .setDepth(32);
     const title = this.add.text(WIDTH / 2, panelTop + 42, '选择强化', {
       fontFamily: 'Arial, sans-serif',
       fontSize: '26px',
       color: '#fef3c7',
       fontStyle: 'bold',
-    }).setOrigin(0.5);
-    this.upgradePanel.push(bg, title);
+    }).setOrigin(0.5).setDepth(33);
+    this.upgradePanel.push(shade, bg, inner, title);
     this.upgrades.forEach((upgrade, index) => {
       const y = panelTop + 118 + index * Math.min(92, panelHeight * 0.225);
-      const card = this.add.rectangle(WIDTH / 2, y, cardWidth, 72, 0x1f2a44, 1).setStrokeStyle(1, 0x93c5fd, 0.55).setInteractive();
-      const textX = WIDTH / 2 - cardWidth / 2 + 18;
-      const name = this.add.text(textX, y - 22, upgrade.title, {
+      const color = upgrade.kind === 'weapon' ? 0x1f3a5f : upgrade.kind === 'passive' ? 0x3b2f55 : 0x36523b;
+      const stroke = upgrade.kind === 'weapon' ? 0x93c5fd : upgrade.kind === 'passive' ? 0xc4b5fd : 0x86efac;
+      const card = this.add.rectangle(WIDTH / 2, y, cardWidth, 76, color, 0.96)
+        .setStrokeStyle(1, stroke, 0.68)
+        .setDepth(33)
+        .setInteractive({ useHandCursor: true });
+      const textX = WIDTH / 2 - cardWidth / 2 + 48;
+      const badge = this.add.rectangle(WIDTH / 2 - cardWidth / 2 + 24, y - 10, 34, 20, stroke, 0.22)
+        .setStrokeStyle(1, stroke, 0.5)
+        .setDepth(34);
+      const badgeText = this.add.text(WIDTH / 2 - cardWidth / 2 + 24, y - 10, this.upgradeKindLabel(upgrade.kind), {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '11px',
+        color: '#f8fafc',
+        fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(35);
+      const name = this.add.text(textX, y - 25, upgrade.title, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '17px',
         color: '#ffffff',
         fontStyle: 'bold',
-      });
-      const desc = this.add.text(textX, y + 5, upgrade.desc, {
+      }).setDepth(35);
+      const desc = this.add.text(textX, y + 2, upgrade.desc, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '13px',
         color: '#cbd5e1',
-        wordWrap: { width: cardWidth - 40 },
-      });
-      card.on('pointerdown', () => this.pickUpgrade(index));
-      this.upgradePanel.push(card, name, desc);
+        wordWrap: { width: cardWidth - 76 },
+      }).setDepth(35);
+      const meta = this.add.text(textX, y + 24, this.upgradeMetaText(upgrade), {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: '11px',
+        color: upgrade.isNew ? '#fde68a' : '#93c5fd',
+      }).setDepth(35);
+      const dots = this.drawUpgradeDots(WIDTH / 2 + cardWidth / 2 - 70, y - 24, upgrade);
+      card.on('pointerover', () => card.setFillStyle(color, 1).setStrokeStyle(2, stroke, 0.95));
+      card.on('pointerout', () => card.setFillStyle(color, 0.96).setStrokeStyle(1, stroke, 0.68));
+      card.on('pointerdown', () => card.setFillStyle(stroke, 0.22));
+      card.on('pointerup', () => this.pickUpgrade(index));
+      this.upgradePanel.push(card, badge, badgeText, name, desc, meta, ...dots);
     });
+  }
+
+  private upgradeKindLabel(kind: Upgrade['kind']) {
+    if (kind === 'weapon') return '武器';
+    if (kind === 'passive') return '饰品';
+    return '补给';
+  }
+
+  private upgradeMetaText(upgrade: Upgrade) {
+    if (upgrade.kind === 'heal') return '立即生效';
+    return upgrade.isNew ? '新获得' : `等级 ${upgrade.currentLevel}/${upgrade.maxLevel}`;
+  }
+
+  private drawUpgradeDots(x: number, y: number, upgrade: Upgrade) {
+    if (upgrade.kind === 'heal') return [];
+    const items: Phaser.GameObjects.GameObject[] = [];
+    const dotCount = Math.min(upgrade.maxLevel, 8);
+    for (let i = 0; i < dotCount; i++) {
+      const filled = i < upgrade.currentLevel;
+      const next = i === upgrade.currentLevel;
+      const dot = this.add.circle(x + i * 8, y, next ? 3.3 : 2.7, filled ? 0xfde68a : next ? 0xffffff : 0x64748b, filled || next ? 0.95 : 0.55).setDepth(35);
+      items.push(dot);
+    }
+    return items;
   }
 
   private pickUpgrade(index: number) {
@@ -964,6 +1058,8 @@ class SurvivorScene extends Phaser.Scene {
       .setPosition(WIDTH / 2, panelTop + 120)
       .setDepth(21)
       .setVisible(true);
+    this.buttonBg.setPosition(WIDTH / 2, panelTop + 158).setDepth(22);
+    this.buttonText.setPosition(WIDTH / 2, panelTop + 158).setDepth(23);
 
     const rows = [
       ['存活时间', this.timeText(this.elapsed)],
@@ -975,9 +1071,9 @@ class SurvivorScene extends Phaser.Scene {
     ];
 
     rows.forEach(([label, value], index) => {
-      const y = panelTop + 170 + index * 34;
+      const y = panelTop + 205 + index * 28;
       const rowWidth = panelWidth - 64;
-      const rowBg = this.add.rectangle(WIDTH / 2, y, rowWidth, 28, 0x1f2937, 0.72).setDepth(21);
+      const rowBg = this.add.rectangle(WIDTH / 2, y, rowWidth, 24, 0x1f2937, 0.72).setDepth(21);
       const labelText = this.add.text(WIDTH / 2 - rowWidth / 2 + 12, y, label, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '14px',
@@ -991,9 +1087,6 @@ class SurvivorScene extends Phaser.Scene {
       }).setOrigin(1, 0.5).setDepth(22);
       this.resultPanel.push(rowBg, labelText, valueText);
     });
-
-    this.buttonBg.setPosition(WIDTH / 2, panelTop + panelHeight - 38).setDepth(22);
-    this.buttonText.setPosition(WIDTH / 2, panelTop + panelHeight - 38).setDepth(23);
     this.resultPanel.push(panel, eyebrow);
   }
 
@@ -1107,15 +1200,10 @@ class SurvivorScene extends Phaser.Scene {
       this.graphics.lineStyle(2, zone.color, alpha + 0.18).strokeCircle(this.screenX(zone.x), this.screenY(zone.y), zone.radius);
     }
     for (const projectile of this.projectiles) {
-      this.graphics.fillStyle(projectile.color, 1).fillCircle(this.screenX(projectile.x), this.screenY(projectile.y), projectile.radius);
+      this.drawProjectile(projectile);
     }
     for (const enemy of this.enemies) {
-      const x = this.screenX(enemy.x);
-      const y = this.screenY(enemy.y);
-      this.graphics.fillStyle(enemy.hurtFlash > 0 ? 0xffffff : enemy.color, 1).fillCircle(x, y, enemy.radius);
-      this.graphics.fillStyle(0x000000, 0.38).fillRect(x - enemy.radius, y - enemy.radius - 8, enemy.radius * 2, 3);
-      this.graphics.fillStyle(0xfb7185, 1).fillRect(x - enemy.radius, y - enemy.radius - 8, enemy.radius * 2 * Phaser.Math.Clamp(enemy.hp / enemy.maxHp, 0, 1), 3);
-      if (enemy.elite) this.graphics.lineStyle(2, 0xfacc15, 0.95).strokeCircle(x, y, enemy.radius + 5);
+      this.drawEnemy(enemy);
     }
     this.graphics.fillStyle(this.player.hurtCooldown > 0 ? 0xffffff : 0xf5d0a9, 1).fillCircle(playerX, playerY, this.player.radius);
     this.graphics.fillStyle(0x0f172a, 1).fillCircle(playerX - 6, playerY - 4, 2.2);
@@ -1264,6 +1352,55 @@ class SurvivorScene extends Phaser.Scene {
     }
     this.graphics.fillStyle(0xfde68a, 1).fillEllipse(x, y, pickup.radius * 1.3, pickup.radius);
     this.graphics.fillStyle(0x92400e, 1).fillCircle(x - 4, y, 1.6);
+  }
+
+  private drawProjectile(projectile: Projectile) {
+    const x = this.screenX(projectile.x);
+    const y = this.screenY(projectile.y);
+    const angle = Math.atan2(projectile.vy, projectile.vx);
+    const speed = Math.max(1, Math.hypot(projectile.vx, projectile.vy));
+    const tail = Phaser.Math.Clamp(speed * 0.035, 10, 28);
+
+    if (projectile.kind === 'claw') {
+      this.graphics.lineStyle(4, projectile.color, 0.92).lineBetween(x - Math.cos(angle) * tail, y - Math.sin(angle) * tail, x + Math.cos(angle) * 7, y + Math.sin(angle) * 7);
+      this.graphics.fillStyle(0xfff7ed, 1).fillCircle(x + Math.cos(angle) * 8, y + Math.sin(angle) * 8, 3);
+      return;
+    }
+
+    if (projectile.kind === 'crescent') {
+      this.graphics.lineStyle(3, projectile.color, 0.85).beginPath().arc(x, y, projectile.radius, angle - 1.9, angle + 1.9).strokePath();
+      this.graphics.fillStyle(0xfdf4ff, 0.9).fillCircle(x, y, Math.max(3, projectile.radius * 0.32));
+      return;
+    }
+
+    this.graphics.lineStyle(3, projectile.color, 0.42).lineBetween(x - Math.cos(angle) * tail, y - Math.sin(angle) * tail, x, y);
+    this.graphics.fillStyle(projectile.color, 1).fillCircle(x, y, projectile.radius);
+    this.graphics.fillStyle(0xecfeff, 0.9).fillCircle(x, y, Math.max(2, projectile.radius * 0.45));
+  }
+
+  private drawEnemy(enemy: Enemy) {
+    const x = this.screenX(enemy.x);
+    const y = this.screenY(enemy.y);
+    const color = enemy.hurtFlash > 0 ? 0xffffff : enemy.color;
+    this.graphics.fillStyle(0x000000, 0.18).fillEllipse(x + 2, y + enemy.radius * 0.55, enemy.radius * 1.8, enemy.radius * 0.72);
+
+    if (enemy.kind === 'fast') {
+      this.graphics.fillStyle(color, 1).fillTriangle(x, y - enemy.radius - 3, x - enemy.radius * 0.8, y + enemy.radius * 0.72, x + enemy.radius * 0.8, y + enemy.radius * 0.72);
+      this.graphics.lineStyle(2, 0xfef3c7, 0.65).strokeTriangle(x, y - enemy.radius - 3, x - enemy.radius * 0.8, y + enemy.radius * 0.72, x + enemy.radius * 0.8, y + enemy.radius * 0.72);
+    } else if (enemy.kind === 'tank') {
+      this.graphics.fillStyle(color, 1).fillRoundedRect(x - enemy.radius, y - enemy.radius * 0.85, enemy.radius * 2, enemy.radius * 1.7, 8);
+      this.graphics.lineStyle(2, 0xddd6fe, 0.55).strokeRoundedRect(x - enemy.radius, y - enemy.radius * 0.85, enemy.radius * 2, enemy.radius * 1.7, 8);
+    } else if (enemy.kind === 'swarm') {
+      this.graphics.fillStyle(color, 1).fillEllipse(x, y, enemy.radius * 2.25, enemy.radius * 1.3);
+      this.graphics.fillStyle(0x1e3a8a, 0.55).fillTriangle(x - enemy.radius * 0.25, y, x - enemy.radius * 1.45, y - enemy.radius * 0.65, x - enemy.radius * 1.18, y + enemy.radius * 0.58);
+      this.graphics.fillTriangle(x + enemy.radius * 0.25, y, x + enemy.radius * 1.45, y - enemy.radius * 0.65, x + enemy.radius * 1.18, y + enemy.radius * 0.58);
+    } else {
+      this.graphics.fillStyle(color, 1).fillCircle(x, y, enemy.radius);
+    }
+
+    this.graphics.fillStyle(0x000000, 0.38).fillRect(x - enemy.radius, y - enemy.radius - 8, enemy.radius * 2, 3);
+    this.graphics.fillStyle(0xfb7185, 1).fillRect(x - enemy.radius, y - enemy.radius - 8, enemy.radius * 2 * Phaser.Math.Clamp(enemy.hp / enemy.maxHp, 0, 1), 3);
+    if (enemy.kind === 'elite') this.graphics.lineStyle(2, 0xfacc15, 0.95).strokeCircle(x, y, enemy.radius + 5);
   }
 
   private drawWorldEdgeShadow() {

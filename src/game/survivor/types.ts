@@ -8,6 +8,7 @@ export type GameMode = 'start' | 'playing' | 'upgrade' | 'gameover';
 
 export type Enemy = {
   id: number;
+  kind: 'basic' | 'fast' | 'tank' | 'swarm' | 'elite';
   x: number;
   y: number;
   radius: number;
@@ -56,6 +57,7 @@ export type Pickup = {
 };
 
 export type Projectile = {
+  kind: 'magic' | 'claw' | 'crescent';
   x: number;
   y: number;
   vx: number;
@@ -113,6 +115,10 @@ export type Stats = {
 export type Upgrade = {
   title: string;
   desc: string;
+  kind: 'weapon' | 'passive' | 'heal';
+  currentLevel: number;
+  maxLevel: number;
+  isNew: boolean;
   apply: (stats: Stats) => void;
 };
 
