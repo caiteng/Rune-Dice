@@ -838,6 +838,8 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private expForLevel(level: number) {
+    const earlyCurve = [0, 2, 5, 9, 14, 20];
+    if (level < earlyCurve.length) return earlyCurve[level];
     if (level < 20) return Math.floor(6 + level * 4.2);
     if (level < 40) return Math.floor(34 + level * 5.8);
     return Math.floor(72 + level * 8.4);

@@ -123,7 +123,7 @@ export function createBaseStats(): Stats {
     speed: 175,
     level: 1,
     exp: 0,
-    nextExp: 8,
+    nextExp: 2,
     fish: 0,
     damage: 1,
     attackSpeed: 1,
