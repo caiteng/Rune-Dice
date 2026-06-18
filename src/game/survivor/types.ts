@@ -21,6 +21,8 @@ export type Enemy = {
   hurtFlash: number;
   yarnCooldown: number;
   hitStun: number;
+  slowTimer: number;
+  slowMultiplier: number;
 };
 
 export type Gem = {

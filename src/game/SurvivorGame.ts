@@ -37,9 +37,11 @@ const PLAYER_FRAME_SIZE = 222;
 const PLAYER_SPRITE_SIZE = 72;
 const PLAYER_ANIM_DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 const ENEMY_HIT_STUN = {
-  meleeAoe: 0.018,
-  randomAoe: 0.026,
   singleTarget: 0.04,
+} as const;
+const ENEMY_HIT_SLOW = {
+  meleeAoe: { duration: 0.035, multiplier: 0.96 },
+  randomAoe: { duration: 0.05, multiplier: 0.93 },
 } as const;
 
 const ENEMY_SPRITE_META: Record<string, { frameWidth: number; frameHeight: number; contentHeight: number }> = {
@@ -111,6 +113,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   preload() {
+    this.createLoadingUi();
     this.load.image('floor_tileset', '/assets/survivor/map/floor_tileset.png');
     this.load.spritesheet('guardian_cat', `${CATDREAM_PLAYER_PATH}/guardian_cat_walk_8dir.png`, { frameWidth: PLAYER_FRAME_SIZE, frameHeight: PLAYER_FRAME_SIZE });
     this.load.spritesheet('enemy_shadow_imp', `${CATDREAM_ENEMY_PATH}/enemy_shadow_imp_walk_atlas.png`, { frameWidth: 362, frameHeight: 724 });
@@ -119,6 +122,44 @@ class SurvivorScene extends Phaser.Scene {
     this.load.spritesheet('enemy_purple_nightmare', `${CATDREAM_ENEMY_PATH}/enemy_purple_nightmare_walk_8x1.png`, { frameWidth: 272, frameHeight: 724 });
     this.load.spritesheet('enemy_sock_bundle', `${CATDREAM_ENEMY_PATH}/enemy_sock_bundle_walk_right_6x1.png`, { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet('enemy_button_imp', `${CATDREAM_ENEMY_PATH}/enemy_button_imp_walk_right_6x1.png`, { frameWidth: 256, frameHeight: 256 });
+  }
+
+  private createLoadingUi() {
+    this.updateViewSize();
+    const centerX = WIDTH / 2;
+    const centerY = HEIGHT / 2;
+    const loadingText = this.add.text(centerX, centerY - 46, '资源加载中...', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '22px',
+      color: '#fff7d6',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const percentText = this.add.text(centerX, centerY + 22, '0%', {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '14px',
+      color: '#dbeafe',
+    }).setOrigin(0.5);
+    const bar = this.add.graphics();
+    const barWidth = Math.min(280, WIDTH - 64);
+    const barX = centerX - barWidth / 2;
+    const barY = centerY - 8;
+
+    const drawProgress = (value: number) => {
+      const progress = Phaser.Math.Clamp(value, 0, 1);
+      bar.clear();
+      bar.fillStyle(0x1f2937, 0.95).fillRoundedRect(barX, barY, barWidth, 16, 8);
+      bar.fillStyle(0xfacc15, 1).fillRoundedRect(barX + 3, barY + 3, Math.max(6, (barWidth - 6) * progress), 10, 5);
+      percentText.setText(`${Math.round(progress * 100)}%`);
+    };
+
+    drawProgress(0);
+    this.load.on('progress', drawProgress);
+    this.load.once('complete', () => {
+      this.load.off('progress', drawProgress);
+      bar.destroy();
+      loadingText.destroy();
+      percentText.destroy();
+    });
   }
 
   create() {
@@ -427,7 +468,7 @@ class SurvivorScene extends Phaser.Scene {
       for (const enemy of this.enemies) {
         const hitRadius = auraRadius + enemy.radius;
         if (this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y) < hitRadius * hitRadius) {
-          this.hurtEnemy(enemy, auraDamage, '#bae6fd', ENEMY_HIT_STUN.meleeAoe);
+          this.hurtEnemy(enemy, auraDamage, '#bae6fd', 0, ENEMY_HIT_SLOW.meleeAoe);
         }
       }
       this.damageBreakableObstaclesInCircle(this.player.x, this.player.y, auraRadius, auraDamage);
@@ -447,8 +488,8 @@ class SurvivorScene extends Phaser.Scene {
             if (enemy.yarnCooldown > this.elapsed) continue;
             const hitRadius = 14 + enemy.radius;
             if (this.distanceSq(x, y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
-              this.hurtEnemy(enemy, damage, '#fde68a', ENEMY_HIT_STUN.meleeAoe);
-              this.applyEnemyKnockback(enemy, x, y, evolved ? 7.5 : 5.5);
+              this.hurtEnemy(enemy, damage, '#fde68a', 0, ENEMY_HIT_SLOW.meleeAoe);
+              this.applyEnemyKnockback(enemy, x, y, evolved ? 7 : 5);
               enemy.yarnCooldown = this.elapsed + hitCooldown;
             }
           }
@@ -574,7 +615,7 @@ class SurvivorScene extends Phaser.Scene {
       for (const enemy of this.enemies) {
         const hitRadius = zone.radius + enemy.radius;
         if (this.distanceSq(zone.x, zone.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
-          this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe', ENEMY_HIT_STUN.randomAoe);
+          this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe', 0, ENEMY_HIT_SLOW.randomAoe);
         }
       }
       this.damageBreakableObstaclesInCircle(zone.x, zone.y, zone.radius, zone.damage * delta);
@@ -626,9 +667,12 @@ class SurvivorScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       enemy.hurtFlash = Math.max(0, enemy.hurtFlash - delta);
       enemy.hitStun = Math.max(0, enemy.hitStun - delta);
+      enemy.slowTimer = Math.max(0, enemy.slowTimer - delta);
+      if (enemy.slowTimer <= 0) enemy.slowMultiplier = 1;
       if (this.freezeTimer <= 0 && enemy.hitStun <= 0) {
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
-        this.moveCircleWithObstacles(enemy, Math.cos(angle) * enemy.speed * delta, Math.sin(angle) * enemy.speed * delta);
+        const speed = enemy.speed * (enemy.slowTimer > 0 ? enemy.slowMultiplier : 1);
+        this.moveCircleWithObstacles(enemy, Math.cos(angle) * speed * delta, Math.sin(angle) * speed * delta);
       }
       const hitRadius = enemy.radius + this.player.radius;
       if (this.distanceSq(enemy.x, enemy.y, this.player.x, this.player.y) <= hitRadius * hitRadius && this.player.hurtCooldown <= 0) {
@@ -823,6 +867,8 @@ class SurvivorScene extends Phaser.Scene {
       hurtFlash: 0,
       yarnCooldown: 0,
       hitStun: 0,
+      slowTimer: 0,
+      slowMultiplier: 1,
     };
     this.enemies.push(enemy);
     this.createEnemySprite(enemy, enemyKind, minute);
@@ -1189,10 +1235,21 @@ class SurvivorScene extends Phaser.Scene {
     this.upgradePanel = [];
   }
 
-  private hurtEnemy(enemy: Enemy, amount: number, color: string, hitStun = 0) {
+  private hurtEnemy(
+    enemy: Enemy,
+    amount: number,
+    color: string,
+    hitStun = 0,
+    hitSlow?: { duration: number; multiplier: number },
+  ) {
     enemy.hp -= amount;
     enemy.hurtFlash = 0.08;
     enemy.hitStun = Math.max(enemy.hitStun, hitStun);
+    if (hitSlow) {
+      enemy.slowTimer = Math.max(enemy.slowTimer, hitSlow.duration);
+      enemy.slowMultiplier = Math.min(enemy.slowMultiplier, hitSlow.multiplier);
+    }
+    if (enemy.slowTimer <= 0) enemy.slowMultiplier = 1;
     if (amount >= 18 || Math.random() < 0.12) {
       this.addText(enemy.x, enemy.y - enemy.radius, String(Math.ceil(amount)), color);
     }
