@@ -382,20 +382,17 @@ class SurvivorScene extends Phaser.Scene {
     this.crescentTimer -= delta;
     if (laserLevel > 0 && this.laserTimer <= 0) {
       const evolved = this.stats.evolved.laser;
-      const shots = evolved ? 2 : laserLevel >= 5 ? 2 : 1;
-      for (let i = 0; i < shots; i++) {
-        this.fireAtNearest(
-          (24 + laserLevel * 7.5) * this.stats.damage * (evolved ? 1.35 : 1),
-          (440 + i * 40) * this.stats.projectileSpeed,
-          evolved ? 0xa5f3fc : 0x7dd3fc,
-          evolved ? 4 : laserLevel >= 6 ? 3 : laserLevel >= 3 ? 2 : 1,
-        );
-      }
-      this.laserTimer = Math.max(evolved ? 0.08 : 0.16, (0.68 - laserLevel * 0.055) * attackScale * (evolved ? 0.46 : 1));
+      this.fireAtNearest(
+        (26 + laserLevel * 8.5) * this.stats.damage * (evolved ? 1.42 : 1),
+        (455 + laserLevel * 12) * this.stats.projectileSpeed,
+        evolved ? 0xa5f3fc : 0x7dd3fc,
+        0,
+      );
+      this.laserTimer = Math.max(evolved ? 0.07 : 0.16, (0.72 - laserLevel * 0.065) * attackScale * (evolved ? 0.34 : 1));
     }
     if (clawLevel > 0 && this.clawTimer <= 0) {
       const evolved = this.stats.evolved.claw;
-      const count = Math.min(evolved ? 6 : 5, 1 + Math.floor(clawLevel / 2) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
+      const count = Math.min(evolved ? 8 : 6, 1 + Math.floor((clawLevel - 1) * 0.72) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
       const baseAngle = this.lastMove.angle();
       for (let i = 0; i < count; i++) {
         const angle = baseAngle + (i - (count - 1) / 2) * (evolved ? 0.06 : 0.32);
@@ -403,23 +400,23 @@ class SurvivorScene extends Phaser.Scene {
           kind: 'claw',
           x: this.player.x,
           y: this.player.y,
-          vx: Math.cos(angle) * (evolved ? 520 : 330) * this.stats.projectileSpeed,
-          vy: Math.sin(angle) * (evolved ? 520 : 330) * this.stats.projectileSpeed,
+          vx: Math.cos(angle) * (evolved ? 620 : 340 + clawLevel * 24) * this.stats.projectileSpeed,
+          vy: Math.sin(angle) * (evolved ? 620 : 340 + clawLevel * 24) * this.stats.projectileSpeed,
           gravity: 0,
           radius: 7,
           damage: (15 + clawLevel * 5.4) * this.stats.damage * (evolved ? 1.12 : 1),
           life: evolved ? 1.2 : 1,
           color: evolved ? 0xfde68a : 0xffa366,
-          pierce: evolved ? 8 : clawLevel >= 5 ? 3 : clawLevel >= 2 ? 2 : 1,
+          pierce: evolved ? 10 : clawLevel >= 7 ? 5 : clawLevel >= 5 ? 4 : clawLevel >= 3 ? 3 : clawLevel >= 2 ? 2 : 1,
           hit: new Set(),
         });
       }
-      this.clawTimer = evolved ? Math.max(0.08, 0.16 * attackScale) : Math.max(0.2, (0.94 - clawLevel * 0.045) * attackScale);
+      this.clawTimer = evolved ? Math.max(0.08, 0.14 * attackScale) : Math.max(0.11, (0.5 - clawLevel * 0.035) * attackScale);
     }
     if (purrLevel > 0) {
       const purrEvolved = this.stats.evolved.purr;
-      const auraRadius = 42 + purrLevel * 17 + this.stats.aura * 5 + (purrEvolved ? 32 : 0);
-      const auraDamage = (6 + purrLevel * 4 + this.stats.aura) * this.stats.damage * delta * (purrEvolved ? 1.65 : 1);
+      const auraRadius = 38 + purrLevel * 15 + this.stats.aura * 5 + (purrEvolved ? 34 : 0);
+      const auraDamage = (5.5 + purrLevel * 4.4 + this.stats.aura) * this.stats.damage * delta * (purrEvolved ? 1.72 : 1);
       for (const enemy of this.enemies) {
         const hitRadius = auraRadius + enemy.radius;
         if (this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y) < hitRadius * hitRadius) {
@@ -430,32 +427,35 @@ class SurvivorScene extends Phaser.Scene {
     }
     if (yarnLevel > 0) {
       const evolved = this.stats.evolved.yarn;
-      const count = Math.min(evolved ? 7 : 5, 1 + Math.floor((yarnLevel + 1) / 2) + (evolved ? 2 : 0));
-      const orbit = 62 + yarnLevel * 9 + (evolved ? 24 : 0);
-      const damage = (10 + yarnLevel * 4) * this.stats.damage * (evolved ? 1.45 : 1);
-      const hitCooldown = (evolved ? 0.2 : 0.32) / this.stats.duration;
-      for (let i = 0; i < count; i++) {
-        const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
-        const x = this.player.x + Math.cos(angle) * orbit;
-        const y = this.player.y + Math.sin(angle) * orbit;
-        for (const enemy of this.enemies) {
-          if (enemy.yarnCooldown > this.elapsed) continue;
-          const hitRadius = 14 + enemy.radius;
-          if (this.distanceSq(x, y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
-            this.hurtEnemy(enemy, damage, '#fde68a');
-            enemy.yarnCooldown = this.elapsed + hitCooldown;
+      if (this.isYarnActive(yarnLevel, evolved)) {
+        const count = Math.min(evolved ? 8 : 6, 1 + Math.floor(yarnLevel * 0.72) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
+        const orbit = 58 + yarnLevel * 7 + this.stats.aura * 2.4 + (evolved ? 28 : 0);
+        const damage = (9 + yarnLevel * 4.6) * this.stats.damage * (evolved ? 1.48 : 1);
+        const hitCooldown = (evolved ? 0.16 : 0.3) / this.stats.duration;
+        for (let i = 0; i < count; i++) {
+          const angle = this.yarnAngle + (Math.PI * 2 * i) / count;
+          const x = this.player.x + Math.cos(angle) * orbit;
+          const y = this.player.y + Math.sin(angle) * orbit;
+          for (const enemy of this.enemies) {
+            if (enemy.yarnCooldown > this.elapsed) continue;
+            const hitRadius = 14 + enemy.radius;
+            if (this.distanceSq(x, y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
+              this.hurtEnemy(enemy, damage, '#fde68a');
+              this.applyEnemyKnockback(enemy, x, y, evolved ? 7 : 5);
+              enemy.yarnCooldown = this.elapsed + hitCooldown;
+            }
           }
+          this.damageBreakableObstaclesInCircle(x, y, 14, damage);
         }
-        this.damageBreakableObstaclesInCircle(x, y, 14, damage);
       }
     }
     if (dropletLevel > 0 && this.dropletTimer <= 0) {
       const evolved = this.stats.evolved.droplet;
-      const drops = Math.min(evolved ? 4 : 3, 1 + Math.floor((dropletLevel - 1) / 3) + (evolved ? 2 : 0));
+      const drops = Math.min(evolved ? 5 : 4, 1 + Math.floor((dropletLevel - 1) / 2) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 1 : 0));
       for (let i = 0; i < drops; i++) {
         this.spawnDropletZone(dropletLevel, evolved);
       }
-      this.dropletTimer = Math.max(0.55, (2.05 - dropletLevel * 0.1) * attackScale * (evolved ? 0.7 : 1));
+      this.dropletTimer = Math.max(0.46, (2.1 - dropletLevel * 0.13) * attackScale * (evolved ? 0.62 : 1));
     }
     if (crescentLevel > 0 && this.crescentTimer <= 0) {
       const evolved = this.stats.evolved.crescent;
@@ -464,7 +464,7 @@ class SurvivorScene extends Phaser.Scene {
       } else {
         this.fireCrescentArc(crescentLevel);
       }
-      this.crescentTimer = Math.max(evolved ? 1.15 : 1.35, (2.45 - crescentLevel * 0.11) * attackScale * (evolved ? 0.82 : 1));
+      this.crescentTimer = Math.max(evolved ? 1.0 : 1.25, (2.35 - crescentLevel * 0.13) * attackScale * (evolved ? 0.75 : 1));
     }
   }
 
@@ -490,22 +490,22 @@ class SurvivorScene extends Phaser.Scene {
 
   private spawnDropletZone(level: number, evolved: boolean) {
     const target = this.nearestEnemy();
-    const spread = evolved ? 110 : 150;
+    const spread = evolved ? 95 : 145;
     const x = target ? target.x + Phaser.Math.Between(-spread, spread) : this.player.x + Phaser.Math.Between(-180, 180);
     const y = target ? target.y + Phaser.Math.Between(-spread, spread) : this.player.y + Phaser.Math.Between(-180, 180);
     this.zones.push({
       x: Phaser.Math.Clamp(x, 24, WORLD_WIDTH - 24),
       y: Phaser.Math.Clamp(y, 24, WORLD_HEIGHT - 24),
-      radius: (34 + level * 5 + this.stats.aura * 4) * (evolved ? 1.3 : 1),
-      damage: (5 + level * 2.3) * this.stats.damage * (evolved ? 1.42 : 1),
-      life: (2.2 + level * 0.13) * this.stats.duration * (evolved ? 1.55 : 1),
+      radius: (32 + level * 6 + this.stats.aura * 4.5) * (evolved ? 1.38 : 1),
+      damage: (8 + level * 4.8) * this.stats.damage * (evolved ? 1.5 : 1),
+      life: (2.05 + level * 0.18) * this.stats.duration * (evolved ? 1.62 : 1),
       color: evolved ? 0x67e8f9 : 0x38bdf8,
     });
   }
 
   private fireCrescentArc(level: number) {
-    const count = Math.min(4, 1 + Math.floor((level - 1) / 2));
-    const baseSpeed = 250 * this.stats.projectileSpeed;
+    const count = Math.min(5, 1 + Math.floor((level - 1) / 2) + Math.max(0, this.stats.projectiles - 1));
+    const baseSpeed = (250 + level * 9) * this.stats.projectileSpeed;
     for (let i = 0; i < count; i++) {
       const offset = (i - (count - 1) / 2) * 0.26;
       this.projectiles.push({
@@ -515,20 +515,20 @@ class SurvivorScene extends Phaser.Scene {
         vx: Math.sin(offset) * baseSpeed,
         vy: -baseSpeed * (1.18 - Math.abs(offset) * 0.25),
         gravity: 430,
-        radius: 10 + this.stats.aura * 1.4,
-        damage: (18 + level * 6) * this.stats.damage,
-        life: (1.8 + level * 0.08) * this.stats.duration,
+        radius: 10 + this.stats.aura * 1.5 + level * 0.4,
+        damage: (20 + level * 7) * this.stats.damage,
+        life: (1.85 + level * 0.1) * this.stats.duration,
         color: 0xc4b5fd,
-        pierce: level >= 5 ? 2 : 1,
+        pierce: level >= 7 ? 3 : level >= 4 ? 2 : 1,
         hit: new Set(),
       });
     }
   }
 
   private fireCrescentSpiral(level: number) {
-    const count = 10;
-    const speed = 285 * this.stats.projectileSpeed;
-    const phase = this.elapsed * 1.8;
+    const count = 12;
+    const speed = 330 * this.stats.projectileSpeed;
+    const phase = this.elapsed * 2.2;
     for (let i = 0; i < count; i++) {
       const angle = phase + (Math.PI * 2 * i) / count;
       this.projectiles.push({
@@ -538,14 +538,21 @@ class SurvivorScene extends Phaser.Scene {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         gravity: 0,
-        radius: 11 + this.stats.aura * 1.8,
-        damage: (18 + level * 6) * this.stats.damage * 1.35,
-        life: 1.8 * this.stats.duration,
+        radius: 12 + this.stats.aura * 1.9,
+        damage: (20 + level * 7) * this.stats.damage * 1.4,
+        life: 2.05 * this.stats.duration,
         color: 0xf0abfc,
-        pierce: 4,
+        pierce: 5,
         hit: new Set(),
       });
     }
+  }
+
+  private isYarnActive(level: number, evolved: boolean) {
+    if (evolved) return true;
+    const cycle = Math.max(2.25, (4.2 - level * 0.18) / this.stats.attackSpeed);
+    const active = Math.min(cycle * 0.72, (1.1 + level * 0.18) * this.stats.duration);
+    return this.elapsed % cycle <= active;
   }
 
   private updateZones(delta: number) {
@@ -574,6 +581,7 @@ class SurvivorScene extends Phaser.Scene {
         if (this.distanceSq(projectile.x, projectile.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
           projectile.hit.add(enemy.id);
           this.hurtEnemy(enemy, projectile.damage, '#ffffff');
+          this.applyEnemyKnockback(enemy, projectile.x, projectile.y, projectile.kind === 'claw' ? 11 : 7);
           if (projectile.pierce > 0) {
             projectile.pierce--;
           } else {
@@ -1165,6 +1173,16 @@ class SurvivorScene extends Phaser.Scene {
     }
   }
 
+  private applyEnemyKnockback(enemy: Enemy, sourceX: number, sourceY: number, distance: number) {
+    const dx = enemy.x - sourceX;
+    const dy = enemy.y - sourceY;
+    const length = Math.hypot(dx, dy);
+    if (length <= 0.001) return;
+    this.moveCircleWithObstacles(enemy, (dx / length) * distance, (dy / length) * distance);
+    enemy.x = Phaser.Math.Clamp(enemy.x, 12, WORLD_WIDTH - 12);
+    enemy.y = Phaser.Math.Clamp(enemy.y, 12, WORLD_HEIGHT - 12);
+  }
+
   private nearestEnemy() {
     let best: Enemy | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
@@ -1657,8 +1675,9 @@ class SurvivorScene extends Phaser.Scene {
     const level = this.stats.weapons.yarn;
     if (level <= 0) return;
     const evolved = this.stats.evolved.yarn;
-    const count = Math.min(evolved ? 7 : 5, 1 + Math.floor((level + 1) / 2) + (evolved ? 2 : 0));
-    const orbit = 62 + level * 9 + (evolved ? 24 : 0);
+    if (!this.isYarnActive(level, evolved)) return;
+    const count = Math.min(evolved ? 8 : 6, 1 + Math.floor(level * 0.72) + Math.max(0, this.stats.projectiles - 1) + (evolved ? 2 : 0));
+    const orbit = 58 + level * 7 + this.stats.aura * 2.4 + (evolved ? 28 : 0);
     const playerX = this.screenX(this.player.x);
     const playerY = this.screenY(this.player.y);
     this.graphics.lineStyle(1, 0xfde68a, 0.24).strokeCircle(playerX, playerY, orbit);
