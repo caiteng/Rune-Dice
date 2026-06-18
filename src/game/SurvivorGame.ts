@@ -387,8 +387,9 @@ class SurvivorScene extends Phaser.Scene {
         (455 + laserLevel * 12) * this.stats.projectileSpeed,
         evolved ? 0xa5f3fc : 0x7dd3fc,
         0,
+        this.magicWandRange(laserLevel, evolved),
       );
-      this.laserTimer = Math.max(evolved ? 0.07 : 0.16, (0.72 - laserLevel * 0.065) * attackScale * (evolved ? 0.34 : 1));
+      this.laserTimer = Math.max(evolved ? 0.12 : 0.28, (1.1 - laserLevel * 0.095) * attackScale * (evolved ? 0.42 : 1));
     }
     if (clawLevel > 0 && this.clawTimer <= 0) {
       const evolved = this.stats.evolved.claw;
@@ -468,8 +469,8 @@ class SurvivorScene extends Phaser.Scene {
     }
   }
 
-  private fireAtNearest(damage: number, speed: number, color: number, pierce: number) {
-    const target = this.nearestEnemy();
+  private fireAtNearest(damage: number, speed: number, color: number, pierce: number, maxRange?: number) {
+    const target = this.nearestEnemy(maxRange);
     if (!target) return;
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
     this.projectiles.push({
@@ -486,6 +487,12 @@ class SurvivorScene extends Phaser.Scene {
       pierce,
       hit: new Set(),
     });
+  }
+
+  private magicWandRange(level: number, evolved: boolean) {
+    const baseRange = Math.min(WIDTH, HEIGHT) * 0.46;
+    const growth = level * 32 + this.stats.aura * 12;
+    return Math.min(evolved ? 620 : 500, baseRange + growth + (evolved ? 120 : 0));
   }
 
   private spawnDropletZone(level: number, evolved: boolean) {
@@ -1183,11 +1190,13 @@ class SurvivorScene extends Phaser.Scene {
     enemy.y = Phaser.Math.Clamp(enemy.y, 12, WORLD_HEIGHT - 12);
   }
 
-  private nearestEnemy() {
+  private nearestEnemy(maxRange?: number) {
     let best: Enemy | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+    const maxDistance = maxRange === undefined ? Number.POSITIVE_INFINITY : maxRange * maxRange;
     for (const enemy of this.enemies) {
       const distance = this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y);
+      if (distance > maxDistance) continue;
       if (distance < bestDistance) {
         best = enemy;
         bestDistance = distance;
