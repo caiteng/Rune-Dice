@@ -36,6 +36,12 @@ const CATDREAM_PLAYER_PATH = '/assets/catdream/player';
 const PLAYER_FRAME_SIZE = 222;
 const PLAYER_SPRITE_SIZE = 72;
 const PLAYER_ANIM_DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
+const ENEMY_HIT_STUN = {
+  meleeAoe: 0.018,
+  randomAoe: 0.026,
+  singleTarget: 0.04,
+} as const;
+
 const ENEMY_SPRITE_META: Record<string, { frameWidth: number; frameHeight: number; contentHeight: number }> = {
   enemy_shadow_imp: { frameWidth: 362, frameHeight: 724, contentHeight: 268 },
   enemy_curtain_wisp: { frameWidth: 362, frameHeight: 724, contentHeight: 331 },
@@ -383,7 +389,7 @@ class SurvivorScene extends Phaser.Scene {
     if (laserLevel > 0 && this.laserTimer <= 0) {
       const evolved = this.stats.evolved.laser;
       this.fireAtNearest(
-        (26 + laserLevel * 8.5) * this.stats.damage * (evolved ? 1.42 : 1),
+        (26.6 + laserLevel * 8.7) * this.stats.damage * (evolved ? 1.43 : 1),
         (455 + laserLevel * 12) * this.stats.projectileSpeed,
         evolved ? 0xa5f3fc : 0x7dd3fc,
         0,
@@ -405,7 +411,7 @@ class SurvivorScene extends Phaser.Scene {
           vy: Math.sin(angle) * (evolved ? 620 : 340 + clawLevel * 24) * this.stats.projectileSpeed,
           gravity: 0,
           radius: 7,
-          damage: (15 + clawLevel * 5.4) * this.stats.damage * (evolved ? 1.12 : 1),
+          damage: (15.4 + clawLevel * 5.55) * this.stats.damage * (evolved ? 1.13 : 1),
           life: evolved ? 1.2 : 1,
           color: evolved ? 0xfde68a : 0xffa366,
           pierce: evolved ? 10 : clawLevel >= 7 ? 5 : clawLevel >= 5 ? 4 : clawLevel >= 3 ? 3 : clawLevel >= 2 ? 2 : 1,
@@ -421,7 +427,7 @@ class SurvivorScene extends Phaser.Scene {
       for (const enemy of this.enemies) {
         const hitRadius = auraRadius + enemy.radius;
         if (this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y) < hitRadius * hitRadius) {
-          this.hurtEnemy(enemy, auraDamage, '#bae6fd');
+          this.hurtEnemy(enemy, auraDamage, '#bae6fd', ENEMY_HIT_STUN.meleeAoe);
         }
       }
       this.damageBreakableObstaclesInCircle(this.player.x, this.player.y, auraRadius, auraDamage);
@@ -441,8 +447,8 @@ class SurvivorScene extends Phaser.Scene {
             if (enemy.yarnCooldown > this.elapsed) continue;
             const hitRadius = 14 + enemy.radius;
             if (this.distanceSq(x, y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
-              this.hurtEnemy(enemy, damage, '#fde68a');
-              this.applyEnemyKnockback(enemy, x, y, evolved ? 7 : 5);
+              this.hurtEnemy(enemy, damage, '#fde68a', ENEMY_HIT_STUN.meleeAoe);
+              this.applyEnemyKnockback(enemy, x, y, evolved ? 7.5 : 5.5);
               enemy.yarnCooldown = this.elapsed + hitCooldown;
             }
           }
@@ -470,7 +476,7 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private fireAtNearest(damage: number, speed: number, color: number, pierce: number, maxRange?: number) {
-    const target = this.nearestEnemy(maxRange);
+    const target = this.nearestEnemy(maxRange, true);
     if (!target) return;
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
     this.projectiles.push({
@@ -490,13 +496,13 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private magicWandRange(level: number, evolved: boolean) {
-    const baseRange = Math.min(WIDTH, HEIGHT) * 0.46;
-    const growth = level * 32 + this.stats.aura * 12;
-    return Math.min(evolved ? 620 : 500, baseRange + growth + (evolved ? 120 : 0));
+    const baseRange = Math.min(WIDTH, HEIGHT) * 0.48;
+    const growth = level * 33 + this.stats.aura * 12;
+    return Math.min(evolved ? 640 : 515, baseRange + growth + (evolved ? 125 : 0));
   }
 
   private spawnDropletZone(level: number, evolved: boolean) {
-    const target = this.nearestEnemy();
+    const target = this.nearestEnemy(undefined, true);
     const spread = evolved ? 95 : 145;
     const x = target ? target.x + Phaser.Math.Between(-spread, spread) : this.player.x + Phaser.Math.Between(-180, 180);
     const y = target ? target.y + Phaser.Math.Between(-spread, spread) : this.player.y + Phaser.Math.Between(-180, 180);
@@ -504,7 +510,7 @@ class SurvivorScene extends Phaser.Scene {
       x: Phaser.Math.Clamp(x, 24, WORLD_WIDTH - 24),
       y: Phaser.Math.Clamp(y, 24, WORLD_HEIGHT - 24),
       radius: (32 + level * 6 + this.stats.aura * 4.5) * (evolved ? 1.38 : 1),
-      damage: (8 + level * 4.8) * this.stats.damage * (evolved ? 1.5 : 1),
+      damage: (8 + level * 4.85) * this.stats.damage * (evolved ? 1.5 : 1),
       life: (2.05 + level * 0.18) * this.stats.duration * (evolved ? 1.62 : 1),
       color: evolved ? 0x67e8f9 : 0x38bdf8,
     });
@@ -523,8 +529,8 @@ class SurvivorScene extends Phaser.Scene {
         vy: -baseSpeed * (1.18 - Math.abs(offset) * 0.25),
         gravity: 430,
         radius: 10 + this.stats.aura * 1.5 + level * 0.4,
-        damage: (20 + level * 7) * this.stats.damage,
-        life: (1.85 + level * 0.1) * this.stats.duration,
+        damage: (20.5 + level * 7.15) * this.stats.damage,
+        life: (1.9 + level * 0.105) * this.stats.duration,
         color: 0xc4b5fd,
         pierce: level >= 7 ? 3 : level >= 4 ? 2 : 1,
         hit: new Set(),
@@ -546,8 +552,8 @@ class SurvivorScene extends Phaser.Scene {
         vy: Math.sin(angle) * speed,
         gravity: 0,
         radius: 12 + this.stats.aura * 1.9,
-        damage: (20 + level * 7) * this.stats.damage * 1.4,
-        life: 2.05 * this.stats.duration,
+        damage: (20.5 + level * 7.15) * this.stats.damage * 1.4,
+        life: 2.1 * this.stats.duration,
         color: 0xf0abfc,
         pierce: 5,
         hit: new Set(),
@@ -568,7 +574,7 @@ class SurvivorScene extends Phaser.Scene {
       for (const enemy of this.enemies) {
         const hitRadius = zone.radius + enemy.radius;
         if (this.distanceSq(zone.x, zone.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
-          this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe');
+          this.hurtEnemy(enemy, zone.damage * delta, '#e0f2fe', ENEMY_HIT_STUN.randomAoe);
         }
       }
       this.damageBreakableObstaclesInCircle(zone.x, zone.y, zone.radius, zone.damage * delta);
@@ -587,8 +593,8 @@ class SurvivorScene extends Phaser.Scene {
         const hitRadius = projectile.radius + enemy.radius;
         if (this.distanceSq(projectile.x, projectile.y, enemy.x, enemy.y) <= hitRadius * hitRadius) {
           projectile.hit.add(enemy.id);
-          this.hurtEnemy(enemy, projectile.damage, '#ffffff');
-          this.applyEnemyKnockback(enemy, projectile.x, projectile.y, projectile.kind === 'claw' ? 11 : 7);
+          this.hurtEnemy(enemy, projectile.damage, '#ffffff', ENEMY_HIT_STUN.singleTarget);
+          this.applyEnemyKnockback(enemy, projectile.x, projectile.y, projectile.kind === 'claw' ? 11.5 : 7.5);
           if (projectile.pierce > 0) {
             projectile.pierce--;
           } else {
@@ -619,7 +625,8 @@ class SurvivorScene extends Phaser.Scene {
   private updateEnemies(delta: number) {
     for (const enemy of this.enemies) {
       enemy.hurtFlash = Math.max(0, enemy.hurtFlash - delta);
-      if (this.freezeTimer <= 0) {
+      enemy.hitStun = Math.max(0, enemy.hitStun - delta);
+      if (this.freezeTimer <= 0 && enemy.hitStun <= 0) {
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, this.player.x, this.player.y);
         this.moveCircleWithObstacles(enemy, Math.cos(angle) * enemy.speed * delta, Math.sin(angle) * enemy.speed * delta);
       }
@@ -815,6 +822,7 @@ class SurvivorScene extends Phaser.Scene {
       elite,
       hurtFlash: 0,
       yarnCooldown: 0,
+      hitStun: 0,
     };
     this.enemies.push(enemy);
     this.createEnemySprite(enemy, enemyKind, minute);
@@ -1181,9 +1189,10 @@ class SurvivorScene extends Phaser.Scene {
     this.upgradePanel = [];
   }
 
-  private hurtEnemy(enemy: Enemy, amount: number, color: string) {
+  private hurtEnemy(enemy: Enemy, amount: number, color: string, hitStun = 0) {
     enemy.hp -= amount;
     enemy.hurtFlash = 0.08;
+    enemy.hitStun = Math.max(enemy.hitStun, hitStun);
     if (amount >= 18 || Math.random() < 0.12) {
       this.addText(enemy.x, enemy.y - enemy.radius, String(Math.ceil(amount)), color);
     }
@@ -1199,11 +1208,12 @@ class SurvivorScene extends Phaser.Scene {
     enemy.y = Phaser.Math.Clamp(enemy.y, 12, WORLD_HEIGHT - 12);
   }
 
-  private nearestEnemy(maxRange?: number) {
+  private nearestEnemy(maxRange?: number, requireOnScreen = false) {
     let best: Enemy | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     const maxDistance = maxRange === undefined ? Number.POSITIVE_INFINITY : maxRange * maxRange;
     for (const enemy of this.enemies) {
+      if (requireOnScreen && !this.isEnemyInAutoTargetView(enemy)) continue;
       const distance = this.distanceSq(this.player.x, this.player.y, enemy.x, enemy.y);
       if (distance > maxDistance) continue;
       if (distance < bestDistance) {
@@ -1212,6 +1222,13 @@ class SurvivorScene extends Phaser.Scene {
       }
     }
     return best;
+  }
+
+  private isEnemyInAutoTargetView(enemy: Enemy) {
+    const margin = enemy.radius + 8;
+    const x = this.screenX(enemy.x);
+    const y = this.screenY(enemy.y);
+    return x >= -margin && x <= WIDTH + margin && y >= -margin && y <= HEIGHT + margin;
   }
 
   private addText(x: number, y: number, text: string, color: string) {
