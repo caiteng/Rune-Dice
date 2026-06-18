@@ -1099,6 +1099,8 @@ class SurvivorScene extends Phaser.Scene {
         .setDepth(33)
         .setInteractive({ useHandCursor: true });
       const textX = WIDTH / 2 - cardWidth / 2 + 48;
+      const textWidth = cardWidth - 76;
+      const titleSize = upgrade.title.length > 10 ? '15px' : '17px';
       const badge = this.add.rectangle(WIDTH / 2 - cardWidth / 2 + 24, y - 10, 34, 20, stroke, 0.22)
         .setStrokeStyle(1, stroke, 0.5)
         .setDepth(34);
@@ -1110,22 +1112,25 @@ class SurvivorScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(35);
       const name = this.add.text(textX, y - 25, upgrade.title, {
         fontFamily: 'Arial, sans-serif',
-        fontSize: '17px',
+        fontSize: titleSize,
         color: '#ffffff',
         fontStyle: 'bold',
+        wordWrap: { width: textWidth, useAdvancedWrap: true },
       }).setDepth(35);
       const desc = this.add.text(textX, y + 2, upgrade.desc, {
         fontFamily: 'Arial, sans-serif',
         fontSize: '13px',
         color: '#cbd5e1',
-        wordWrap: { width: cardWidth - 76 },
+        wordWrap: { width: textWidth, useAdvancedWrap: true },
       }).setDepth(35);
       const meta = this.add.text(textX, y + 24, this.upgradeMetaText(upgrade), {
         fontFamily: 'Arial, sans-serif',
         fontSize: '11px',
         color: upgrade.isNew ? '#fde68a' : '#93c5fd',
       }).setDepth(35);
-      const dots = this.drawUpgradeDots(WIDTH / 2 + cardWidth / 2 - 70, y - 24, upgrade);
+      name.setMaxLines(1);
+      desc.setMaxLines(2);
+      const dots = this.drawUpgradeDots(WIDTH / 2 + cardWidth / 2 - 70, y + 26, upgrade);
       card.on('pointerover', () => card.setFillStyle(color, 1).setStrokeStyle(2, stroke, 0.95));
       card.on('pointerout', () => card.setFillStyle(color, 0.96).setStrokeStyle(1, stroke, 0.68));
       card.on('pointerdown', () => card.setFillStyle(stroke, 0.22));
