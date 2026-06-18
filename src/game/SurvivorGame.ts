@@ -32,6 +32,10 @@ const FLOOR_TILE_SIZE = 176;
 const FLOOR_TILE_SCALE = FLOOR_TILE_SIZE / FLOOR_TEXTURE_SIZE;
 const MAX_FLOATING_TEXTS = 28;
 const CATDREAM_ENEMY_PATH = '/assets/catdream/enemies';
+const CATDREAM_PLAYER_PATH = '/assets/catdream/player';
+const PLAYER_FRAME_SIZE = 222;
+const PLAYER_SPRITE_SIZE = 72;
+const PLAYER_ANIM_DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 const ENEMY_SPRITE_META: Record<string, { frameHeight: number; contentHeight: number }> = {
   enemy_shadow_imp: { frameHeight: 724, contentHeight: 296 },
   enemy_curtain_wisp: { frameHeight: 724, contentHeight: 337 },
@@ -86,6 +90,8 @@ class SurvivorScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private versionText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
+  private playerSprite!: Phaser.GameObjects.Sprite;
+  private playerAnimKey = 'guardian_cat_walk_n';
   private weaponHudTexts: Phaser.GameObjects.Text[] = [];
   private floatingTextViews: Phaser.GameObjects.Text[] = [];
   private enemySprites = new Map<number, Phaser.GameObjects.Sprite>();
@@ -100,6 +106,7 @@ class SurvivorScene extends Phaser.Scene {
 
   preload() {
     this.load.image('floor_tileset', '/assets/survivor/map/floor_tileset.png');
+    this.load.spritesheet('guardian_cat', `${CATDREAM_PLAYER_PATH}/guardian_cat_walk_8dir.png`, { frameWidth: PLAYER_FRAME_SIZE, frameHeight: PLAYER_FRAME_SIZE });
     this.load.spritesheet('enemy_shadow_imp', `${CATDREAM_ENEMY_PATH}/enemy_shadow_imp_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
     this.load.spritesheet('enemy_curtain_wisp', `${CATDREAM_ENEMY_PATH}/enemy_curtain_wisp_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
     this.load.spritesheet('enemy_hooded_whisper', `${CATDREAM_ENEMY_PATH}/enemy_hooded_whisper_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
@@ -110,12 +117,19 @@ class SurvivorScene extends Phaser.Scene {
 
   create() {
     this.updateViewSize();
+    this.createPlayerAnimations();
     this.createEnemyAnimations();
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keys = this.input.keyboard?.addKeys('W,A,S,D,SPACE,ENTER') as Record<string, Phaser.Input.Keyboard.Key> | undefined;
     this.floorTile = this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'floor_tileset').setOrigin(0).setDepth(-10);
     this.floorTile.setTileScale(FLOOR_TILE_SCALE, FLOOR_TILE_SCALE);
     this.graphics = this.add.graphics();
+    this.playerSprite = this.add.sprite(0, 0, 'guardian_cat')
+      .setDepth(2)
+      .setOrigin(0.5, 0.64)
+      .setDisplaySize(PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE)
+      .play(this.playerAnimKey)
+      .setVisible(false);
     this.obstacles = this.createObstacles();
     this.titleText = this.add.text(WIDTH / 2, 260, '猫猫守夜', {
       fontFamily: 'Arial, sans-serif',
@@ -166,6 +180,19 @@ class SurvivorScene extends Phaser.Scene {
     this.createEnemyAnimation('enemy_purple_nightmare', 0, 2);
     this.createEnemyAnimation('enemy_sock_bundle', 0, 5);
     this.createEnemyAnimation('enemy_button_imp', 0, 5);
+  }
+
+  private createPlayerAnimations() {
+    PLAYER_ANIM_DIRECTIONS.forEach((direction, row) => {
+      const key = `guardian_cat_walk_${direction}`;
+      if (this.anims.exists(key)) return;
+      this.anims.create({
+        key,
+        frames: this.anims.generateFrameNumbers('guardian_cat', { start: row * 4, end: row * 4 + 3 }),
+        frameRate: 7,
+        repeat: -1,
+      });
+    });
   }
 
   private createEnemyAnimation(key: string, start: number, end: number) {
@@ -254,6 +281,8 @@ class SurvivorScene extends Phaser.Scene {
     this.yarnAngle = 0;
     this.player = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2, radius: 17, hurtCooldown: 0 };
     this.lastMove.set(0, -1);
+    this.playerAnimKey = 'guardian_cat_walk_n';
+    this.playerSprite.play(this.playerAnimKey, true).setVisible(true);
     this.stats = createBaseStats();
     this.enemies = [];
     this.clearEnemySprites();
@@ -308,10 +337,25 @@ class SurvivorScene extends Phaser.Scene {
     if (input.lengthSq() > 0) {
       input.normalize();
       this.lastMove.copy(input);
+      this.updatePlayerAnimation(input);
+      this.playerSprite.anims.resume();
       this.moveCircleWithObstacles(this.player, input.x * this.stats.speed * delta, input.y * this.stats.speed * delta);
+    } else {
+      this.playerSprite.anims.pause();
     }
     this.player.x = Phaser.Math.Clamp(this.player.x, PLAYER_TUNING.margin, WORLD_WIDTH - PLAYER_TUNING.margin);
     this.player.y = Phaser.Math.Clamp(this.player.y, PLAYER_TUNING.margin, WORLD_HEIGHT - PLAYER_TUNING.margin);
+  }
+
+  private updatePlayerAnimation(input: Phaser.Math.Vector2) {
+    const angle = Phaser.Math.RadToDeg(Math.atan2(input.y, input.x));
+    const normalized = (angle + 360 + 22.5) % 360;
+    const index = Math.floor(normalized / 45);
+    const directions = ['e', 'se', 's', 'sw', 'w', 'nw', 'n', 'ne'];
+    const key = `guardian_cat_walk_${directions[index]}`;
+    if (key === this.playerAnimKey) return;
+    this.playerAnimKey = key;
+    this.playerSprite.play(key, true);
   }
 
   private inputVector() {
@@ -1324,14 +1368,17 @@ class SurvivorScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       this.drawEnemy(enemy);
     }
-    this.graphics.fillStyle(this.player.hurtCooldown > 0 ? 0xffffff : 0xf5d0a9, 1).fillCircle(playerX, playerY, this.player.radius);
-    this.graphics.fillStyle(0x0f172a, 1).fillCircle(playerX - 6, playerY - 4, 2.2);
-    this.graphics.fillCircle(playerX + 6, playerY - 4, 2.2);
-    this.graphics.fillStyle(0xf5d0a9, 1);
-    this.graphics.fillTriangle(playerX - 13, playerY - 12, playerX - 8, playerY - 28, playerX, playerY - 14);
-    this.graphics.fillTriangle(playerX + 13, playerY - 12, playerX + 8, playerY - 28, playerX, playerY - 14);
+    this.drawPlayerSprite(playerX, playerY);
 
     this.renderFloatingTexts();
+  }
+
+  private drawPlayerSprite(x: number, y: number) {
+    this.playerSprite
+      .setPosition(x, y + 4)
+      .setVisible(this.mode !== 'start');
+    if (this.player.hurtCooldown > 0) this.playerSprite.setTintFill(0xffffff);
+    else this.playerSprite.clearTint();
   }
 
   private renderFloatingTexts() {
