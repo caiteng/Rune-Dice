@@ -36,13 +36,13 @@ const CATDREAM_PLAYER_PATH = '/assets/catdream/player';
 const PLAYER_FRAME_SIZE = 222;
 const PLAYER_SPRITE_SIZE = 72;
 const PLAYER_ANIM_DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
-const ENEMY_SPRITE_META: Record<string, { frameHeight: number; contentHeight: number }> = {
-  enemy_shadow_imp: { frameHeight: 724, contentHeight: 296 },
-  enemy_curtain_wisp: { frameHeight: 724, contentHeight: 337 },
-  enemy_hooded_whisper: { frameHeight: 724, contentHeight: 366 },
-  enemy_purple_nightmare: { frameHeight: 724, contentHeight: 347 },
-  enemy_sock_bundle: { frameHeight: 256, contentHeight: 210 },
-  enemy_button_imp: { frameHeight: 256, contentHeight: 215 },
+const ENEMY_SPRITE_META: Record<string, { frameWidth: number; frameHeight: number; contentHeight: number }> = {
+  enemy_shadow_imp: { frameWidth: 362, frameHeight: 724, contentHeight: 268 },
+  enemy_curtain_wisp: { frameWidth: 362, frameHeight: 724, contentHeight: 331 },
+  enemy_hooded_whisper: { frameWidth: 362, frameHeight: 724, contentHeight: 357 },
+  enemy_purple_nightmare: { frameWidth: 272, frameHeight: 724, contentHeight: 344 },
+  enemy_sock_bundle: { frameWidth: 256, frameHeight: 256, contentHeight: 210 },
+  enemy_button_imp: { frameWidth: 256, frameHeight: 256, contentHeight: 215 },
 };
 
 class SurvivorScene extends Phaser.Scene {
@@ -107,10 +107,10 @@ class SurvivorScene extends Phaser.Scene {
   preload() {
     this.load.image('floor_tileset', '/assets/survivor/map/floor_tileset.png');
     this.load.spritesheet('guardian_cat', `${CATDREAM_PLAYER_PATH}/guardian_cat_walk_8dir.png`, { frameWidth: PLAYER_FRAME_SIZE, frameHeight: PLAYER_FRAME_SIZE });
-    this.load.spritesheet('enemy_shadow_imp', `${CATDREAM_ENEMY_PATH}/enemy_shadow_imp_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
-    this.load.spritesheet('enemy_curtain_wisp', `${CATDREAM_ENEMY_PATH}/enemy_curtain_wisp_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
-    this.load.spritesheet('enemy_hooded_whisper', `${CATDREAM_ENEMY_PATH}/enemy_hooded_whisper_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
-    this.load.spritesheet('enemy_purple_nightmare', `${CATDREAM_ENEMY_PATH}/enemy_purple_nightmare_walk_atlas.png`, { frameWidth: 724, frameHeight: 724 });
+    this.load.spritesheet('enemy_shadow_imp', `${CATDREAM_ENEMY_PATH}/enemy_shadow_imp_walk_atlas.png`, { frameWidth: 362, frameHeight: 724 });
+    this.load.spritesheet('enemy_curtain_wisp', `${CATDREAM_ENEMY_PATH}/enemy_curtain_wisp_walk_atlas.png`, { frameWidth: 362, frameHeight: 724 });
+    this.load.spritesheet('enemy_hooded_whisper', `${CATDREAM_ENEMY_PATH}/enemy_hooded_whisper_walk_atlas.png`, { frameWidth: 362, frameHeight: 724 });
+    this.load.spritesheet('enemy_purple_nightmare', `${CATDREAM_ENEMY_PATH}/enemy_purple_nightmare_walk_8x1.png`, { frameWidth: 272, frameHeight: 724 });
     this.load.spritesheet('enemy_sock_bundle', `${CATDREAM_ENEMY_PATH}/enemy_sock_bundle_walk_right_6x1.png`, { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet('enemy_button_imp', `${CATDREAM_ENEMY_PATH}/enemy_button_imp_walk_right_6x1.png`, { frameWidth: 256, frameHeight: 256 });
   }
@@ -174,10 +174,10 @@ class SurvivorScene extends Phaser.Scene {
   }
 
   private createEnemyAnimations() {
-    this.createEnemyAnimation('enemy_shadow_imp', 0, 2);
-    this.createEnemyAnimation('enemy_curtain_wisp', 0, 2);
-    this.createEnemyAnimation('enemy_hooded_whisper', 0, 2);
-    this.createEnemyAnimation('enemy_purple_nightmare', 0, 2);
+    this.createEnemyAnimation('enemy_shadow_imp', 0, 5);
+    this.createEnemyAnimation('enemy_curtain_wisp', 0, 5);
+    this.createEnemyAnimation('enemy_hooded_whisper', 0, 5);
+    this.createEnemyAnimation('enemy_purple_nightmare', 0, 7);
     this.createEnemyAnimation('enemy_sock_bundle', 0, 5);
     this.createEnemyAnimation('enemy_button_imp', 0, 5);
   }
@@ -827,22 +827,26 @@ class SurvivorScene extends Phaser.Scene {
       .setOrigin(0.5, 0.58)
       .play(`${key}_walk`);
     const size = this.enemySpriteSize(enemy, key);
-    sprite.setDisplaySize(size, size);
+    sprite.setDisplaySize(size.width, size.height);
     this.enemySprites.set(enemy.id, sprite);
   }
 
   private enemyTextureKey(kind: EnemyKind | 'elite', minute: number) {
     if (kind === 'fast') return 'enemy_button_imp';
-    if (kind === 'tank') return 'enemy_sock_bundle';
-    if (kind === 'swarm') return 'enemy_curtain_wisp';
+    if (kind === 'tank') return minute >= 6 ? 'enemy_hooded_whisper' : 'enemy_curtain_wisp';
+    if (kind === 'swarm') return 'enemy_shadow_imp';
     if (kind === 'elite') return 'enemy_purple_nightmare';
-    return minute >= 5 ? 'enemy_hooded_whisper' : 'enemy_shadow_imp';
+    return 'enemy_shadow_imp';
   }
 
   private enemySpriteSize(enemy: Enemy, key: string) {
-    const meta = ENEMY_SPRITE_META[key] ?? { frameHeight: 256, contentHeight: 220 };
+    const meta = ENEMY_SPRITE_META[key] ?? { frameWidth: 256, frameHeight: 256, contentHeight: 220 };
     const visualHeight = enemy.radius * this.enemyVisualHeightScale(enemy.kind);
-    return (visualHeight * meta.frameHeight) / meta.contentHeight;
+    const height = (visualHeight * meta.frameHeight) / meta.contentHeight;
+    return {
+      width: height * (meta.frameWidth / meta.frameHeight),
+      height,
+    };
   }
 
   private enemyVisualHeightScale(kind: Enemy['kind']) {
