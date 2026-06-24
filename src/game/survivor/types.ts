@@ -1,14 +1,14 @@
 export const GAME_WIDTH = 390;
 export const GAME_HEIGHT = 844;
-export const WORLD_WIDTH = 2400;
-export const WORLD_HEIGHT = 2400;
+export const WORLD_WIDTH = 1900;
+export const WORLD_HEIGHT = 1900;
 export const MATCH_TIME_SECONDS = 600;
 
 export type GameMode = 'start' | 'playing' | 'upgrade' | 'gameover';
 
 export type Enemy = {
   id: number;
-  kind: 'basic' | 'fast' | 'tank' | 'swarm' | 'elite';
+  kind: 'basic' | 'fast' | 'tank' | 'swarm' | 'elite' | 'boss';
   x: number;
   y: number;
   radius: number;
@@ -23,6 +23,17 @@ export type Enemy = {
   hitStun: number;
   slowTimer: number;
   slowMultiplier: number;
+};
+
+export type EnemyBullet = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  damage: number;
+  life: number;
+  color: number;
 };
 
 export type Gem = {
@@ -81,6 +92,8 @@ export type Zone = {
   damage: number;
   life: number;
   color: number;
+  slowMultiplier: number;
+  owner: 'player' | 'boss';
 };
 
 export type FloatingText = {
@@ -91,8 +104,8 @@ export type FloatingText = {
   life: number;
 };
 
-export type WeaponId = 'laser' | 'claw' | 'purr' | 'yarn' | 'droplet' | 'crescent';
-export type PassiveId = 'catnip' | 'bell' | 'slippers' | 'snack' | 'cushion' | 'spring' | 'lantern' | 'ribbon';
+export type WeaponId = 'laser' | 'claw' | 'purr' | 'yarn' | 'droplet' | 'crescent' | 'paw';
+export type PassiveId = 'catnip' | 'bell' | 'slippers' | 'snack' | 'cushion' | 'spring' | 'lantern' | 'ribbon' | 'scratcher';
 
 export type Stats = {
   maxHp: number;
@@ -143,12 +156,13 @@ export function createBaseStats(): Stats {
     duration: 1,
     aura: 1,
     weapons: {
-      laser: 1,
+      laser: 0,
       claw: 0,
       purr: 0,
       yarn: 0,
       droplet: 0,
       crescent: 0,
+      paw: 1,
     },
     evolved: {
       laser: false,
@@ -157,6 +171,7 @@ export function createBaseStats(): Stats {
       yarn: false,
       droplet: false,
       crescent: false,
+      paw: false,
     },
     passives: {
       catnip: 0,
@@ -167,6 +182,7 @@ export function createBaseStats(): Stats {
       spring: 0,
       lantern: 0,
       ribbon: 0,
+      scratcher: 0,
     },
   };
 }

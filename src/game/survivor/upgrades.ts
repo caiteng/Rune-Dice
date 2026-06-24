@@ -3,8 +3,8 @@ import type { PassiveId, Stats, Upgrade, WeaponId } from './types';
 
 export const MAX_WEAPON_LEVEL = 8;
 export const MAX_PASSIVE_LEVEL = 5;
-export const MAX_WEAPON_SLOTS = 6;
-export const MAX_PASSIVE_SLOTS = 6;
+export const MAX_WEAPON_SLOTS = 5;
+export const MAX_PASSIVE_SLOTS = 5;
 
 export const WEAPON_NAMES: Record<WeaponId, string> = {
   laser: '追光铃',
@@ -13,6 +13,7 @@ export const WEAPON_NAMES: Record<WeaponId, string> = {
   yarn: '星环毛线',
   droplet: '夜露水碟',
   crescent: '月牙玩具',
+  paw: '猫爪扫击',
 };
 
 export const EVOLVED_WEAPON_NAMES: Record<WeaponId, string> = {
@@ -22,6 +23,7 @@ export const EVOLVED_WEAPON_NAMES: Record<WeaponId, string> = {
   yarn: '星环毛线阵',
   droplet: '流光水碟阵',
   crescent: '满月回旋',
+  paw: '九命爪影',
 };
 
 const WEAPON_DESCS: Record<WeaponId, string> = {
@@ -31,6 +33,7 @@ const WEAPON_DESCS: Record<WeaponId, string> = {
   yarn: '毛线球围绕猫猫旋转，提升数量和伤害。',
   droplet: '在敌人附近留下持续伤害区域，提升范围和持续时间。',
   crescent: '向上抛出穿透弹体，提升数量、范围和伤害。',
+  paw: '左右交替近战横扫，提升范围、伤害和攻击频率。',
 };
 
 const PASSIVE_DEFS: Record<PassiveId, { name: string; desc: string; apply: (stats: Stats) => void }> = {
@@ -56,7 +59,7 @@ const PASSIVE_DEFS: Record<PassiveId, { name: string; desc: string; apply: (stat
     },
   },
   snack: {
-    name: '小鱼干磁力',
+    name: '小鱼干碗',
     desc: '经验拾取范围提升。',
     apply: (stats) => {
       stats.pickup *= 1.18;
@@ -90,6 +93,13 @@ const PASSIVE_DEFS: Record<PassiveId, { name: string; desc: string; apply: (stat
       stats.duration *= 1.15;
     },
   },
+  scratcher: {
+    name: '磨爪板',
+    desc: '近战横扫范围提升。',
+    apply: (stats) => {
+      stats.aura *= 1.1;
+    },
+  },
 };
 
 export const EVOLUTION_PASSIVE: Record<WeaponId, PassiveId> = {
@@ -99,6 +109,7 @@ export const EVOLUTION_PASSIVE: Record<WeaponId, PassiveId> = {
   yarn: 'ribbon',
   droplet: 'snack',
   crescent: 'lantern',
+  paw: 'scratcher',
 };
 
 export function createUpgradeOptions(stats: Stats): Upgrade[] {

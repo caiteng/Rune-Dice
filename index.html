@@ -1,1 +1,84 @@
-<!doctype html><html><head><meta charset='UTF-8'/><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'/><title>猫猫守夜</title><link rel='stylesheet' href='/src/style.css'></head><body><div id='app'></div><script type='module' src='/src/main.ts'></script></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>猫猫守夜</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #11151f;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+
+      #boot-loading {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #11151f;
+        color: #f8fafc;
+      }
+
+      #boot-loading .panel {
+        width: min(72vw, 280px);
+        text-align: center;
+      }
+
+      #boot-loading .title {
+        font-size: 26px;
+        font-weight: 700;
+        color: #fff7d6;
+      }
+
+      #boot-loading .text {
+        margin-top: 12px;
+        font-size: 14px;
+        color: #cbd5e1;
+      }
+
+      #boot-loading .bar {
+        height: 8px;
+        margin-top: 18px;
+        border-radius: 999px;
+        background: #263243;
+        overflow: hidden;
+      }
+
+      #boot-loading .fill {
+        width: 42%;
+        height: 100%;
+        border-radius: 999px;
+        background: #facc15;
+        animation: boot-loading 1.05s ease-in-out infinite alternate;
+      }
+
+      @keyframes boot-loading {
+        from {
+          transform: translateX(-95%);
+        }
+        to {
+          transform: translateX(238%);
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="boot-loading" aria-live="polite">
+      <div class="panel">
+        <div class="title">猫猫守夜</div>
+        <div class="text">正在加载资源...</div>
+        <div class="bar"><div class="fill"></div></div>
+      </div>
+    </div>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -9,11 +9,11 @@ export type EnemySpawnStats = {
 export type EnemyKind = 'basic' | 'fast' | 'tank' | 'swarm';
 
 export function spawnIntervalForMinute(minute: number): number {
-  return Math.max(0.16, Math.min(0.82, 0.82 - minute * 0.07));
+  return Math.max(0.18, Math.min(0.86, 0.86 - minute * 0.062));
 }
 
 export function spawnCountForMinute(minute: number): number {
-  let count = 1 + Math.floor(minute * 1.15);
+  let count = 1 + Math.floor(minute * 1.02);
   if (minute >= 4) count += 1;
   if (minute >= 7) count += 2;
   if (minute >= 9) count += 2;
@@ -30,30 +30,30 @@ export function chooseEnemyKind(minute: number): EnemyKind {
 }
 
 export function createEnemySpawnStats(minute: number, elite: boolean, kind: EnemyKind = chooseEnemyKind(minute)): EnemySpawnStats {
-  const pressure = 1 + Math.max(0, minute - 4) * 0.09 + Math.max(0, minute - 8) * 0.13;
-  let hp = (28 + minute * 11 + Math.max(0, minute - 5) * 9) * pressure;
+  const pressure = 1 + Math.max(0, minute - 4) * 0.065 + Math.max(0, minute - 8) * 0.11;
+  let hp = (24 + minute * 8.5 + Math.max(0, minute - 5) * 7) * pressure;
   let speed = 60 + minute * 6;
-  let radius = 14;
+  let radius = 11;
   let damage = 9 + Math.floor(minute * 0.9);
   let color = 0xcbd5e1;
 
   if (kind === 'swarm') {
-    hp = (14 + minute * 5) * pressure;
+    hp = (12 + minute * 4.2) * pressure;
     speed = 92 + minute * 3.2;
-    radius = 10;
+    radius = 8.5;
     damage = 6 + Math.floor(minute * 0.55);
     color = 0x93c5fd;
   }
 
   if (kind === 'fast') {
-    hp = (18 + minute * 7) * pressure;
+    hp = (16 + minute * 5.6) * pressure;
     speed = 104 + minute * 4.2;
-    radius = 11;
+    radius = 9.5;
     color = 0xfacc15;
   }
 
   if (kind === 'tank') {
-    hp = (78 + minute * 24 + Math.max(0, minute - 6) * 20) * pressure;
+    hp = (64 + minute * 18 + Math.max(0, minute - 6) * 15) * pressure;
     speed = 38 + minute * 1.2;
     radius = 20;
     damage = 12 + Math.floor(minute * 1.05);
@@ -61,7 +61,7 @@ export function createEnemySpawnStats(minute: number, elite: boolean, kind: Enem
   }
 
   if (elite) {
-    hp = (260 + minute * 90 + Math.max(0, minute - 5) * 80) * pressure;
+    hp = (230 + minute * 74 + Math.max(0, minute - 5) * 64) * pressure;
     speed = 50 + minute * 1.5;
     radius = 25;
     damage = 22 + Math.floor(minute * 1.8);
